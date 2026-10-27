@@ -1,18 +1,154 @@
-# Yonned İş Modeli, Süreçler ve Ürün Vizyonu (Business Spec)
-**Belge Türü:** İş ve Ürün Şartnamesi (Business & Product SSOT)  
+# Yonned İş Modeli, Süreçler ve Ürün Vizyonu (V1.0 - Master Business Spec)
+**Belge Türü:** Tek Gerçek Kaynağı (Single Source of Truth - Business SSOT)  
 **Tarih:** 28 Ekim 2026  
-**Durum:** Taslak / Başlangıç
+**Durum:** Kesinleşmiş ve Onaylanmış Ana İş Belgesi  
+**Felsefe:** *Kişi-Merkezli Varlık Ekosistemi (Yonned Citizen), Çift Yönlü Değer Akışı (Hizmet Veren & Hizmet Alan Simetrisi), Viral Ağ Etkisi (Flywheel)*
 
 ---
 
-## 1. Ürün Vizyonu ve Değer Önerisi (Value Proposition)
-Yonned; fiziksel varlıklar üzerinde operasyon yürüten işletmelerin (veteriner klinikleri, oto servis/yıkamalar, teknik servisler, atölyeler) süreçlerini dijitalleştiren, çalışanların tek elle mobil uygulamadan yönettiği ve müşterilerin anlık olarak canlı takip edebildiği yeni nesil bir **Operasyon ve Takip Platformudur**.
+## 1. ÜRÜN VİZYONU VE TEMEL FELSEFE
 
-### Temel Değerler:
-1. **İşletme Sahibi (Patron) için:** Tüm şubeleri, katları, kafes/lift doluluklarını, çalışan performansını ve süreç verimliliğini kuşbakışı izleme ve denetleme.
-2. **Çalışan (Operatör) için:** Kağıt kalemi ve hantal ekranları çöpe atan, kamera vizörüyle her şeyi saniyede okutup kaydeden sıfır sürtünmeli mobil araç.
-3. **Müşteri için:** Şeffaflık ve güven. Uygulama indirmeden, tek tıkla dostunun ameliyatını veya aracının bakımını canlı izleme ayrıcalığı.
+### 1.1. Yonned Nedir?
+Yonned; yalnızca bir sektöre hapsedilmiş klasik bir B2B ERP yazılımı **değildir**. 
+
+Yonned; fiziksel dünyada varlıkları olan ve bu varlıklar üzerinde operasyon yürüten insanların **kendi varlıklarıyla yaşadığı, hem hizmet verip hem hizmet alabildiği yaşayan bir ekosistemdir.**
+
+### 1.2. "Yonned Bireyi" (The Yonned Citizen)
+Geleneksel yazılımlar insanı bir role kilitler: *"Sen sadece müşterisin"* veya *"Sen sadece patronsun"*.
+
+Yonned'de ise insan tektir ve merkezdedir:
+* **Her bireyin bir "Varlık Cüzdanı" (Asset Wallet) vardır:**
+  * Bireyin özel varlıkları olabilir: Köpeği (*Tarçın*), Arabası (*34 ABC 123*), Telefonu (*iPhone 15*).
+  * Bireyin işlettiği varlıkları olabilir: Kliniği (*Pati Veteriner*), Oto Yıkaması (*Demir Detailing*), Atölyesi.
+* **Birey aynı gün içinde iki tarafta da yaşar:**
+  * Gündüz kliniğinde ameliyat yapan, kafesleri yöneten bir **Hizmet Veren (Patron / Operatör)**,
+  * Akşam arabasını servise bıraktığında balata değişimini telefonundan canlı izleyen bir **Hizmet Alan (Müşteri)**!
+
+```
+                                ┌──────────────────────┐
+                                │   👤 YONNED BİREYİ   │
+                                │    (Ali Yılmaz)      │
+                                └──────────┬───────────┘
+                                           │
+                        ┌──────────────────┴──────────────────┐
+                        ▼                                     ▼
+        [HİZMET VEREN (Patron / Usta)]          [HİZMET ALAN (Müşteri)]
+        Kendi İşletme Varlıkları:               Kendi Özel Varlıkları:
+        • "Ali Usta Oto Detailing"              • Köpeği "Tarçın"
+        • 2 Yıkama Peronu, 1 Boya Fırını        • Arabası "34 ABC 123"
+        • Yanında çalışan 2 çırak               • Telefonu "iPhone 15"
+                        │                                     │
+                        ▼                                     ▼
+        Başkalarının arabalarına                Köpeğini "Pati Kliniği"ne
+        pasta-cila yapar, fatura                bırakır, ameliyatını Yonned'den
+        keser, veri besler, para kazanır.       canlı izler, hizmet satın alır.
+```
 
 ---
 
-*(Bu belge bir sonraki aşamada gelir modelleri, paketleme, kullanıcı personaları ve sektörel iş akışları ile detaylandırılacaktır).*
+## 2. DEĞER ÖNERİSİ (VALUE PROPOSITION)
+
+### 2.1. İşletme Sahibi (Patron) İçin:
+* **Kuşbakışı Hakimiyet:** Kaç şubesi, kaç katı olursa olsun; kafes, masa veya lift doluluklarını saniyesinde izler.
+* **Süreç Özgürlüğü:** Süreçleri kendi belirler (şablon kütüphanesi). İster veterinerlik yapsın, ister oto detailing, ister kuyumculuk; yazılımı dükkanına göre şekillendirir.
+* **Sıfır Donanım & Bulut Maliyeti:** Pahalı AWS S3 faturaları veya lisans ücretleri ödemez.
+
+### 2.2. Saha Çalışanı (Operatör) İçin:
+* **Sıfır Bürokrasi:** Islak, eldivenli veya yağlı ellerle uzun formlar doldurmaz.
+* **Evrensel Tarayıcı:** Tek bir kamera vizörüyle kafes QR'ını, hasta QR'ını veya ilaç barkodunu saniyede okutur.
+* **Sıfır Blokaj:** Sistemde olmayan yeni bir ilaç mı geldi? Hata almaz; adını yazar, geçer. Araya acil müdahale mi girdi? İşi kilitlemeden müdahaleyi kaydeder.
+
+### 2.3. Hizmet Alan (Müşteri) İçin:
+* **Uygulama İndirme Zorunluluğu Yok:** SMS veya WhatsApp'tan gelen `yonned.com/t/token` linkine tıklar.
+* **Tam Şeffaflık ve Güven:** "Dostum şu an nerede? Ameliyat başladı mı? Arabamın hangi parçası değişti?" sorularının cevabını canlı fotoğraflar ve zaman damgalarıyla izler.
+* **Tüm Varlıklar Tek Ekranda:** Kedisinin aşı karnesini de arabasının servis geçmişini de aynı profil altında saklar.
+
+---
+
+## 3. VİRAL AĞ ETKİSİ VE BÜYÜME ÇARKI (THE FLYWHEEL)
+
+Geleneksel B2B yazılımlar yavaş büyür çünkü sadece işletmelere tek tek satış yaparlar. Yonned ise **çift taraflı ağ etkisiyle kendi kendini büyütür:**
+
+```
+                  ┌──────────────────────────────────────────────┐
+                  │ 1. İşletme Yonned'i Kullanmaya Başlar        │
+                  │    (Örn: Pati Veteriner Kliniği)             │
+                  └──────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                  ┌──────────────────────────────────────────────┐
+                  │ 2. Ayda 500 Müşteriye Canlı Takip Linki Gider │
+                  │    (Müşteriler Yonned kalitesini deneyimler) │
+                  └──────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                  ┌──────────────────────────────────────────────┐
+                  │ 3. Müşterilerin İçindeki İşletme Sahipleri   │
+                  │    (Oto yıkamacı, tamirci, terzi, diş hekimi)│
+                  │    "Bunu kendi dükkanımda da kullanmalıyım!" │
+                  └──────────────────────┬───────────────────────┘
+                                         │
+                                         ▼
+                  ┌──────────────────────────────────────────────┐
+                  │ 4. Yeni İşletmeler Sıfır Reklamla Katılır    │
+                  │    (Çark katlanarak hızlanır!)               │
+                  └──────────────────────────────────────────────┘
+```
+
+---
+
+## 4. GELİR VE MONETİZASYON STRATEJİSİ (BUSINESS MODEL)
+
+Yonned, küçük esnaftan uluslararası zincirlere kadar uzanan çok katmanlı ve adil bir fiyatlandırma modeline sahiptir:
+
+### 4.1. Freemium / Başlangıç Katmanı (Micro Tier)
+* **Hedef:** Tek kişilik atölyeler, mobil çalışan teknisyenler, küçük butik dükkanlar.
+* **Özellik:** 1 Bayi, 1 Kullanıcı, ayda 100 aktif süreç kaydı $\rightarrow$ **ÜCRETSİZ.**
+* **Amaç:** Pazar penetrasyonu sağlamak ve platformu standart kılmak.
+
+### 4.2. B2B Profesyonel Abonelik (SaaS Subscription)
+* **Hedef:** Kliniker, oto servisler, çok çalışanlı işletmeler.
+* **Fiyatlandırma:** Bayi başı + Aktif operatör kotası (Örn: 29$ / ay / şube).
+* **Kapsam:** Sınırsız süreç, sınırsız QR basımı, özel şablonlar, detaylı analitik ve raporlar.
+
+### 4.3. Katma Değerli Hizmetler (Add-Ons)
+* **Akıllı Bildirim Paketi:** Müşteriye doğrudan WhatsApp Business API ve SMS ile giden durum bildirimleri (kullanım başı mikropayments).
+* **Kurumsal Çoklu Şube (Enterprise):** 10'dan fazla bayisi olan zincirler için merkezi denetim, özel SLA ve konsolide ciro/performans raporlaması.
+
+---
+
+## 5. SEKTÖREL GENİŞLEME VE PAZARA GİRİŞ (GO-TO-MARKET)
+
+Sistemimiz tamamen generic (Kişi - Aset - Süreç) olduğu için aynı altyapıyla sırayla dikey sektörleri fetheder:
+
+| Aşama | Sektör / Dikey | Neden Bu Sıra? | Aset / Süreç Örneği |
+| :---: | :--- | :--- | :--- |
+| **Faz 1** | **Veteriner Klinikleri** | Güven ve takip ihtiyacının en yüksek olduğu sektör. Hasta sahipleri duygusal bağ taşır, canlı takibe bayılır. | Kedi Tarçın $\rightarrow$ Ameliyat, Tıraş, Pansuman, Aşı. |
+| **Faz 2** | **Oto Servis & Detailing** | Yüksek işlem hacmi, parça tüketimi ve fiziksel istasyon (lift, peron) takibi ihtiyacı. | 34 ABC 123 $\rightarrow$ Yağ Bakımı, Seramik Kaplama, Balata. |
+| **Faz 3** | **Teknik Servis & Cihaz Tamiri** | Seri no/IMEI takibi, bekleme rafları ve arıza test süreçleri. | iPhone 15 $\rightarrow$ Ekran Değişimi, Anakart Lehim, Test. |
+| **Faz 4** | **Zanaat & Özel Üretim Atölyeleri**| Kuyumcular, özel dikim terziler, mobilya restorasyon atölyeleri. | Elbise / Mücevher $\rightarrow$ Prova, Kesim, Taş Dizimi. |
+
+---
+
+## 6. KULLANICI DENEYİMİ VE ROLLERİN AKIŞKANLIĞI
+
+Yonned uygulamasını açan bir birey, profil fotoğrafına tıklayarak tek dokunuşla dünyasını değiştirir:
+
+```
+┌────────────────────────────────────────────────────────┐
+│  👤 Ali Yılmaz (Giriş Yapıldı)                         │
+├────────────────────────────────────────────────────────┤
+│  AKTİF ÇALIŞMA ALANI:                                  │
+│  🟢 Ali Usta Detailing (Patron / Düzenleyici Modu)      │
+│     • Peron 1: 🔴 34 YZ 999 (Yıkama devam ediyor)      │
+│     • Peron 2: 🟢 Boş                                   │
+│     • [+ Süreç Başlat]  [📷 QR Tara]  [📊 Raporlar]    │
+├────────────────────────────────────────────────────────┤
+│  [🔄 Mod Değiştir / Kişisel Varlıklarım]                │
+│  🚗 Kişisel Takip Modu (Sorgulayıcı)                   │
+│     • 🐾 Kedi Tarçın: Pati Kliniğinde (Ameliyat Bitti) │
+│     • 🚙 BMW 3.20: Maslak Serviste (Parça Bekleniyor)  │
+└────────────────────────────────────────────────────────┘
+```
+
+Bu akışkanlık sayesinde kullanıcı hiçbir zaman iki farklı uygulama indirmek veya farklı hesaplarla giriş yapmak zorunda kalmaz. **İş hayatı ve kişisel varlıkları aynı ekosistemin içinde barış içinde akar.**
