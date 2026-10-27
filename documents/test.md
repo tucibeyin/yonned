@@ -124,6 +124,13 @@ Mobil kameradan gelen tek bir ham metin / QR string'i backend tarafından anınd
 2. **Müşteri İçi Delegasyon:**
    * Araç sahibi Mehmet Bey arabasını servise bırakır. Takip ekranını eşine paylaşır (`can_view=True`). Eşi arabanın takibini canlı izler ama tamirciye yanlışlıkla servis iptali veremez.
 
+### Senaryo D: Mülkiyetin Değişmezliği ve Zilyetlik İzolasyonu (Ownership Invariance)
+1. **Giriş:** Ali Bey köpeği Karabaş'ı (`owner_person_id = Ali`) kliniğe bırakır.
+2. **Oturum Açılışı:** Hekim Karabaş'ı teslim alır (`asset_sessions` açılır, `checked_in`).
+3. **Doğrulama 1 (Mülkiyet Korunumu):** Oturum süresince `karabaş.owner_person_id` değerinin kesinlikle Ali Bey kaldığı, kliniğin veya hekimin mülkiyeti üzerine ALAMADIĞI doğrulanır.
+4. **Doğrulama 2 (Varlık İradesizliği):** Bir varlığın (Karabaş veya Kafes 1) sisteme login olamayacağı veya başka birine paylaşım (Vasıf) devredemeyeceği (`AssertionError / 400 Bad Request`) doğrulanır.
+5. **Çıkış:** Hizmet biter (`checked_out`); varlık sahibine iade edilir.
+
 ---
 
 ## 5. BARE-METAL GÜVENLİK VE DAYANIKLILIK TESTLERİ

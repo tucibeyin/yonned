@@ -219,10 +219,42 @@ Yonned dünyasında mimari ve zihinsel sadeliğin zirvesi şudur:
 
 ### Neden Bu Paradigma Devrimseldir?
 1. **Zihinsel Yük Sıfırdır:** Kullanıcı ya da yazılımcı farklı nesneler için 10 farklı izin ve rol sistemi öğrenmez. Kliniği ortağıyla paylaşırken de, kedisini eşiyle paylaşırken de, bir ameliyat sürecini stajyere devrederken de aynı 4 kutuyu (Görüntüle, Değiştir, Ekle, Sil) kullanır.
-2. **Süreç Bir Asettir:** Bir ameliyat veya detaylı araç restorasyonu zaman içinde yaşayan dinamik bir varlıktır. Tıpkı bir araba gibi; kimin yürüttüğü (sahibi/operatörü), hangi aşamada olduğu, geçmiş kayıtları ve fotoğrafları vardır. Müşteriye paylaşıldığında sadece `Görüntüle` yetkisi verilir; cerraha `Görüntüle + Değiştir + Ekle` yetkisi verilir.
-3. **İnsan Bir Varlıktır:** İnsan bir yandan sisteme giriş yapan bilinçtir; diğer yandan işletme için bir yetkinlik ve çalışma kapasitesidir. Bir şubeye hekim veya çırak atamak, o kişiyi işletme aset ağacına bağlamaktan ve ona 4 fiilden gerekenleri tanımaktan ibarettir.
+2. **Süreç Bir Varlıktır:** Bir ameliyat veya detaylı araç restorasyonu zaman içinde yaşayan dinamik bir varlıktır. Tıpkı bir araba gibi; kimin yürüttüğü (operatörü), hangi aşamada olduğu, geçmiş kayıtları ve fotoğrafları vardır. Müşteriye paylaşıldığında sadece `Görüntüle` yetkisi verilir; cerraha `Görüntüle + Değiştir + Ekle` yetkisi verilir.
+3. **İnsan İrade Sahibidir:** İnsan bir yandan sisteme giriş yapan bilinçtir; diğer yandan işletme için bir yetkinlik ve çalışma kapasitesidir.
 4. **Hizmet Veren & Hizmet Alan Simetrisi:** İster hizmet satan bir patron ol, ister hizmet alan bir müşteri; sistemle kurduğun ilişki değişmez: Varlığını seç, izinlerini belirle ve akışı başlat.
 
+---
 
+## 9. ONTOLOJİK VE HUKUKİ NETLİK: MÜLKİYET (KALICI SAHİPLİK) VS. ZİLYETLİK (GEÇİCİ SORUMLULUK)
 
+Sistemin "girift" olmasını ve kavramların birbirine çorba gibi karışmasını engelleyen iki temel prensip vardır:
 
+### 9.1. Kalıcı Sahiplik vs. Geçici Süreç Sorumluluğu
+Müşteri (Ali Bey) kedisini (Tarçın) kliniğe ameliyata bıraktığında veya arabasını servise verdiğinde:
+* **Kalıcı Sahiplik (Mülkiyet):** Asla değişmez! Kedi 10 gün klinikte kalsa da, ameliyat masasında yatsa da sahibi daima Ali Bey'dir (`owner_person_id = Ali`).
+* **Geçici Sorumluluk (Zilyetlik / Hizmet Oturumu):** Kedi kliniğe girdiği an bir **"Hizmet Oturumu (Asset Session)"** açılır. Hekim veya usta o varlığın sahibi olmaz; o süreç boyunca varlığın **"Operatörü ve Geçici Koruyucusu"** olur.
+* **Kural:** İnsan bir varlığı mülkiyet olarak üzerine almaz; varlığı sadece kabul eder (check-in) ve üzerinde süreç işletir. Süreç bitip kedi teslim edildiğinde oturum kapanır (`check-out`).
+
+### 9.2. "Cümlenin Öğeleri" Kuralı (Sıfır Karmaşa)
+Varlık ile Süreç birbirine kaynamaz, iç içe geçip rol çalmaz. Tıpkı Türkçe bir cümlenin öğeleri gibi ayrışırlar:
+
+```
+┌──────────────────┐      ┌─────────────────────────┐      ┌──────────────────┐
+│   ÖZNE (KİM?)    │ ──►  │    YÜKLEM (NE YAPIYOR?) │ ──►  │  NESNE (NEYE?)   │
+│   İNSAN / AKTÖR  │      │    ZAMANSAL SÜREÇ       │      │  FİZİKSEL ASET   │
+├──────────────────┤      ├─────────────────────────┤      ├──────────────────┤
+│ Dr. Veli         │      │ Tıraş / Bakım yapıyor   │      │ Kedi Tarçın'a    │
+│ Usta Ahmet       │      │ Balata değişimi yapıyor │      │ BMW 3.20'ye      │
+└──────────────────┘      └─────────────────────────┘      └──────────────────┘
+                                       │
+                                       ▼ (Nerede yapıyor?)
+                          ┌─────────────────────────┐
+                          │ YER / TÜMLEÇ            │
+                          │ MEKANSAL ASET           │
+                          ├─────────────────────────┤
+                          │ Kadıköy Şube, Masa #2   │
+                          └─────────────────────────┘
+```
+
+> **Ana Kural:**  
+> **"İNSAN yapar (İrade ve Paylaşım), FİZİKSEL ASET üzerinde yapılır (Nesne), SÜREÇ bu yapılan iştir (Zaman). Varlıklar asla süreç başlatamaz ve varlıklar asla paylaşım yapamaz."**

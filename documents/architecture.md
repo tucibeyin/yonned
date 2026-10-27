@@ -160,14 +160,15 @@ Büyük boyutlu resimler backend sunucusunu yormaz:
 ## 6. VERİTABANI VE VERİ YAPILARI ŞARTNAMESİ (DATA STRUCTURES & SQL)
 
 ### 6.1. Ontolojik Model: Evrensel Aset Yaklaşımı ve 4 Temel Fiil
-Sistemdeki tüm nesneler, aktörler ve eylemler tek bir ortak ontolojide buluşur:
-* **1. KİŞİ (`persons`):** Evrensel kimlik (telefon / JWT). Sisteme giriş yapan conscious aktör.
-* **2. FİZİKSEL ASET (`assets`):** Özyinelemeli ağaç (`parent_id`).
+Sistemdeki tüm nesneler, aktörler ve eylemler "Cümlenin Öğeleri" kuralıyla ayrışır:
+* **1. ÖZNE (İNSAN / `persons`):** Evrensel bilinç ve tekil kimlik (telefon / JWT). İrade koyan, giriş yapan, süreç başlatan ve paylaşım yapan **yegane** aktördür.
+* **2. NESNE & YER (VARLIK / `assets`):** Özyinelemeli mülkiyet ve mekan ağacı (`parent_id`).
   * `İşletme ➔ Bayi ➔ Kat ➔ Oda ➔ Kafes/Lift ➔ Cihaz ➔ Hasta/Araç`.
-  * *Varlık Dolaşımı (Asset Roaming):* Kedi Tarçın veya BMW araç şubeler arasında özgürce gezer; kayıt kopyalanmaz.
-* **3. SÜREÇ (`processes`):** Zaman boyutunda yaşayan varlıklar. Başlayan, biten (`started_at != ended_at`) veya anlık (`0 sn`) tüm operasyonlar.
-* **4. EVRENSEL YETKİ MOTORU (`asset_shares`):**
-  Aset sahibi (patron, araç sahibi veya evcil hayvan sahibi), varlığını dilediği kişiyle paylaşır. Yetki 4 temel fiilden ibarettir ve alt varlıklar ile süreçlere özyinelemeli olarak sirayet eder:
+  * *Kalıcı Mülkiyet (Persistent Ownership):* Kedi Tarçın'ın veya BMW aracın sahibi daima müşteridir (`owner_person_id`). Varlık kliniğe/servise girdiğinde mülkiyet asla değişmez.
+  * *Geçici Zilyetlik (Hizmet Oturumu / `asset_sessions`):* Varlık tesise girdiğinde bir oturum açılır. Hekim veya usta varlığın sahibi olmaz; oturum süresince varlığın geçici koruyucusu ve operatörü olur.
+* **3. YÜKLEM (SÜREÇ / `processes`):** Bir İnsanın (Operatör), yetkili olduğu bir Varlık (Mekan) içinde, başka bir Varlık (Özne) üzerinde icra ettiği zamansal eylemlerdir (`started_at`, `ended_at`, `status`).
+* **4. HAK & İLİŞKİ (EVRENSEL VASIF / `asset_shares`):**
+  Yalnızca İnsanlar varlıklarını paylaşabilir (Varlıklar asla paylaşım yapamaz). Vasıf, 4 temel fiilden ibarettir:
   * **`can_view` (Görüntüle):** Varlığı, anlık konumunu ve üzerinde yürüyen tüm süreç/oturum kayıtlarını, fotoğrafları izleme izni.
   * **`can_edit` (Değiştir):** Var olan süreç detaylarını, aşama durumlarını, notları veya varlık bilgilerini güncelleme izni.
   * **`can_add` (Ekle):** Varlık üzerinde yeni bir süreç başlatma, araya acil müdahale ekleme, sarf/ilaç tüketimi girme veya alt varlık tanımlama izni.
