@@ -151,22 +151,26 @@ Mobil kameradan gelen tek bir ham metin / QR string'i backend tarafından anınd
 
 ---
 
-## 6. TESTLERİN ÇALIŞTIRILMASI VE OTOMASYON (CI / CLI)
+## 6. TESTLERİN ÇALIŞTIRILMASI VE DOĞRULAMA (NODE103 STAGING RUNNER)
 
-Testler yerel ortamda ve sunucuda tek bir komutla çalıştırılabilir:
+Yerel geliştirme ortamında (localhost) test koşumu **yapılmaz**. Tüm birim, entegrasyon ve yük testleri doğrudan **`node103` (Standalone Staging Node: `185.205.194.236`)** üzerinde, gerçek Debian 13 işletim sistemi, yerel PostgreSQL 17 ve Redis 7 servisleri ile koşturulur.
 
+### node103 Üzerinde Test Koşum Adımları:
 ```bash
-# 1. Sanal ortamı aktif et
+# 1. SSH ile Staging Düğümüne Bağlan
+ssh node103
+
+# 2. En son kodu çek ve sanal ortamı aktif et
+cd /var/www/yonned.com
+git pull origin main
 source backend/venv/bin/activate
+pip install -r backend/requirements.txt
 
-# 2. Tüm Birim ve Model Testlerini Çalıştır
-pytest tests/unit/ -v
+# 3. Staging Veritabanı Göçlerini (Alembic) Uygula
+alembic upgrade head
 
-# 3. 4-Fiil Yetki ve İzin Matrisi Testlerini Çalıştır
-pytest tests/unit/test_permissions_4verbs.py -v
-
-# 4. API ve WebSocket Entegrasyon Testlerini Çalıştır
-pytest tests/integration/ -v --asyncio-mode=auto
+# 4. Tüm Test Bataryasını Çalıştır
+pytest tests/ -v --asyncio-mode=auto
 
 # 5. E2E Sıfır Blokaj ve Kaza Senaryolarını Çalıştır
 pytest tests/e2e/test_zero_blockage_accident.py -v
@@ -175,4 +179,4 @@ pytest tests/e2e/test_zero_blockage_accident.py -v
 pytest --cov=app --cov-report=term-missing tests/
 ```
 
-Her `git push origin main` öncesinde bu test bataryası %100 yeşil olmak zorundadır.
+Her canlıya çıkış öncesinde bu test bataryası `node103` üzerinde %100 yeşil olmak zorundadır.

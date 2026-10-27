@@ -32,7 +32,7 @@ Tüm bu varlıklar tek bir ortak yetki modeliyle yönetilir ve paylaşılır:
 
 ## 2. TOPOLOJİ VE DONANIM MİMARİSİ (TOPOLOGY & HARDWARE)
 
-Sistem kaynak israfını önlemek, operasyonel karmaşıklığı sıfıra indirmek ve bare-metal performans almak amacıyla **2 Düğümlü Mimari (Node102 + Node104)** üzerinde çalışır. Diğer 3 sunucu serbesttir.
+Sistem; üretim ortamında yüksek erişilebilirlik ve kaynak ayrımı için **2 Düğümlü Üretim Mimarisi (Node102 + Node104)** üzerinde, test ve doğrulama için ise tamamen izole **Bağımsız Staging Düğümü (Node103)** üzerinde çalışır.
 
 ```
 [ DIŞ DÜNYA: İstemciler ] (Flutter Mobil, Web Admin, Müşteri Tracker)
@@ -43,60 +43,44 @@ Sistem kaynak israfını önlemek, operasyonel karmaşıklığı sıfıra indirm
 │ • Anycast DNS & Edge Caching                                           │
 │ • DDoS Koruması (L3/L4/L7 saldırı emilimi)                             │
 │ • Full (Strict) SSL Termination & Bot Fight Mode                       │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-                                   ▼ Şifreli Trafik (Cloudflare Origin CA)
-┌────────────────────────────────────────────────────────────────────────┐
-│ KATMAN 2: NODE102 (Compute & Core Application Node)                    │
-│ • IP: 185.205.194.173 | 3 vCPU | 9 GB RAM | 80 GB SSD | 10 Gbps Port   │
-│ • OS: Debian GNU/Linux 13 (Trixie) - Kernel 6.12                       │
-│                                                                        │
-│ 🛡️ CROWDSEC SAVUNMA KATMANI:                                          │
-│ ├── CrowdSec Security Engine (Log analizörü: SSH + Nginx logları)      │
-│ ├── nftables Firewall Bouncer: Kötü niyetli IP'leri çekirdekte banlar  │
-│ └── Community Threat Intelligence: Küresel kara listeleri önceden çeker│
-│                                                                        │
-│ 🌐 TERS VEKİL & SSL (Nginx Server + Certbot):                          │
-│ ├── Port 80  ➔ 443 Yönlendirmesi                                       │
-│ ├── Port 443 ➔ SSL Sonlandırma & Dahili Yönlendirme                    │
-│ │   ├── /api/*   ➔ 127.0.0.1:8000 (FastAPI ASGI Uvicorn)               │
-│ │   ├── /ws      ➔ 127.0.0.1:8000 (WebSocket Canlı Takip Akışı)        │
-│ │   └── /admin, /t/* ➔ Statik Dosyalar / Jinja2 Web Arayüzleri         │
-│                                                                        │
-│ ⚙️ DAHİLİ SERVİSLER (Yalnızca 127.0.0.1 - Dışarıya Kapalı):           │
-│ ├── PostgreSQL 17 (Port 5432 - İlişkisel Veritabanı)                   │
-│ ├── Redis 7 (Port 6379 - Soket & Önbellek)                             │
-│ └── Uvicorn / FastAPI Workers (Port 8000 - Backend Motoru)             │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-                                   ▼ Özel / İmzalı S3 İletişimi (Port 9000)
-┌────────────────────────────────────────────────────────────────────────┐
-│ KATMAN 3: NODE104 (Object Storage & Media Vault Node)                  │
-│ • IP: 82.39.86.94 | 2 vCPU | 3 GB RAM | 1 TB HDD (/mnt/data) | 1 Gbps  │
-│ • OS: Debian GNU/Linux 13 (Trixie)                                     │
-│                                                                        │
-│ 🛡️ CROWDSEC (SSH Koruması & Port Kısıtlaması)                          │
-│                                                                        │
-│ 📦 MinIO S3 Object Storage Service (Port 9000):                        │
-│ ├── /mnt/data/yonned-media/   ➔ Fotoğraflar, tahliller, evraklar       │
-│ └── /mnt/data/yonned-backups/ ➔ node102 Veritabanı Yedek Arşivi        │
-└────────────────────────────────────────────────────────────────────────┘
+└──────────────────┬─────────────────────────────────┬───────────────────┘
+                   │                                 │
+                   ▼ (Üretim Trafiği)                ▼ (Staging / Test Trafiği)
+┌────────────────────────────────────────┐ ┌────────────────────────────────────────┐
+│ KATMAN 2: NODE102 (Production Compute) │ │ KATMAN 4: NODE103 (Standalone Staging) │
+│ • IP: 185.205.194.173                  │ │ • IP: 185.205.194.236                  │
+│ • 3 vCPU | 9 GB RAM | 80 GB SSD        │ │ • 3 vCPU | 8 GB RAM | 80 GB SSD        │
+│ • OS: Debian 13 (Trixie)               │ │ • OS: Debian 13 (Trixie)               │
+│                                        │ │                                        │
+│ 🛡️ CrowdSec + nftables                 │ │ 🧪 TAM BAĞIMSIZ STAGING & TEST ORTAMI: │
+│ 🌐 Nginx + Certbot (SSL)               │ │ ├── PostgreSQL 17 (Staging DB)         │
+│ ⚙️ FastAPI + Redis 7 (Compute & Cache)  │ │ ├── Redis 7 (Staging Soket)            │
+└──────────────────┬─────────────────────┘ │ ├── FastAPI ASGI Service (Port 8000)   │
+                   │                       │ ├── Yerel MinIO S3 (Test Depolama)     │
+                   ▼ Özel S3 (Port 9000)   │ └── Otomatik Pytest & E2E Test Koşumu  │
+┌────────────────────────────────────────┐ └────────────────────────────────────────┘
+│ KATMAN 3: NODE104 (Object Storage)     │
+│ • IP: 82.39.86.94                      │
+│ • 2 vCPU | 3 GB RAM | 1 TB HDD (/mnt)  │
+│ • MinIO S3 Media & Backup Vault        │
+└────────────────────────────────────────┘
 ```
 
-### Donanım Kaynak Dağılımı ve Port Matrisi:
-* **`node102` (Compute & DB):** 9 GB RAM'in yalnızca ~2.85 GB'ı servisler (Postgres, Redis, API, Nginx) tarafından kullanılır; geriye kalan ~6 GB bellek disk I/O önbelleğine ve anlık yüklere kalır.
-* **`node104` (Storage):** 3 GB RAM'in ~500 MB'ı MinIO tarafından kullanılır; 1 TB diskte **1.000.000 adet fotoğraf** sıfır bulut maliyetiyle depolanır.
+### Donanım Dağılımı ve Sunucu Rolleri:
+1. **`node102` (Üretim Compute & DB):** Canlı müşteri trafiği, PostgreSQL 17, Redis 7, FastAPI ve Nginx.
+2. **`node104` (Üretim Medya Deposu):** 1 TB disk üzerinde canlı MinIO S3 medya kasası ve yedekleme.
+3. **`node103` (Tam Bağımsız Staging & Test):** Üretimden tamamen izole, tek başına tüm servisleri (DB, Redis, API, Test MinIO) barındıran; tüm testlerin, göçlerin (migration) ve stres denemelerinin koşturulacağı laboratuvar sunucusu.
+4. **`node101` & `node105`:** Yedek / serbest bekleme düğümleri.
 
-| Sunucu | Port | Protokol | Servis | Dış Dünyaya Açık mı? | Güvenlik Önlemi |
-| :--- | :---: | :---: | :--- | :---: | :--- |
-| **`node102`** | 22 | TCP | SSH | Evet (Kısıtlı) | Yalnızca SSH Key (Parola Kapalı) + CrowdSec |
-| **`node102`** | 80 | TCP | HTTP | Evet | Nginx (Otomatik HTTPS 443 Yönlendirmesi) |
-| **`node102`** | 443 | TCP | HTTPS | Evet | Cloudflare WAF + Nginx TLS 1.3 (Certbot SSL) |
-| **`node102`** | 8000 | TCP | FastAPI | **HAYIR** | Sadece `127.0.0.1` dinler |
-| **`node102`** | 5432 | TCP | PostgreSQL | **HAYIR** | Sadece `127.0.0.1` dinler |
-| **`node102`** | 6379 | TCP | Redis | **HAYIR** | Sadece `127.0.0.1` dinler |
-| **`node104`** | 22 | TCP | SSH | Evet (Kısıtlı) | Sadece SSH Key + CrowdSec |
-| **`node104`** | 9000 | TCP | MinIO S3 | Kısıtlı | Yalnızca `node102` IP'sine izin verilir (nftables) |
+### Geliştirme ve Kodlama Dili Standardı:
+* **Kod Dili:** %100 **İngilizce** (Değişkenler, fonksiyonlar, sınıf adları, tablo ve sütun adları, API endpoint'leri).
+* **Yorum ve Dokümantasyon Dili:** **Türkçe** (Docstring'ler, kod içi açıklamalar, commit açıklamaları ve şartname belgeleri).
+
+| Sunucu | Rol | IP | vCPU / RAM / Disk | Dışa Açık Servisler |
+| :--- | :--- | :---: | :---: | :--- |
+| **`node102`** | Production Compute/DB | `185.205.194.173` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx) |
+| **`node104`** | Production Object Vault| `82.39.86.94` | 2 vCPU / 3 GB / 1 TB HDD | Port 22 (SSH), 9000 (MinIO - kısıtlı) |
+| **`node103`** | Standalone Staging Node| `185.205.194.236` | 3 vCPU / 8 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Staging Web/API) |
 
 ---
 
@@ -107,7 +91,7 @@ Sistem kaynak israfını önlemek, operasyonel karmaşıklığı sıfıra indirm
 * **Güvenlik (`chmod 600`):** `.env.production` dosyası yalnızca `root`/`yonned` kullanıcısına okunur, `.gitignore` ile korunur.
 
 ```ini
-# /var/www/yonned/.env.production
+# /var/www/yonned.com/.env.production
 DATABASE_URL=postgresql+asyncpg://yonned:GIZLI_PAROLA@127.0.0.1:5432/yonned_db
 REDIS_URL=redis://127.0.0.1:6379/0
 SECRET_KEY=64_KARAKTER_HEX_GIZLI_ANAHTAR
@@ -374,7 +358,7 @@ Sunucularda Docker yükü olmadan doğrudan Git tabanlı dağıtım:
 2. **Push:** `git commit -m "feat: core process engine" && git push origin main`
 3. **Canlıya Alma (`node102` üzerinde):**
    ```bash
-   cd /var/www/yonned
+   cd /var/www/yonned.com
    git pull origin main
    source backend/venv/bin/activate
    pip install -r backend/requirements.txt
