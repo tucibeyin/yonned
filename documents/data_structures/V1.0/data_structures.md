@@ -1,90 +1,136 @@
 # Yonned Veri Yapıları Şartnamesi (V1.0)
 **Tarih:** 27 Ekim 2026  
-**Durum:** Taslak / Onaylandı  
-**Mimari Felsefe:** *Generic, Loosely-Coupled (Gevşek Bağlı), İlişkisel ve Blokajsız (Non-Blocking)*
+**Durum:** Onaylandı / Genişletildi  
+**Mimari Felsefe:** *Generic, Loosely-Coupled (Gevşek Bağlı), Çoklu Bayi (Multi-Branch), Varlık Dolaşımı (Asset Roaming), Sıfır-Tekrar (Zero-Duplication) ve Sıfır-Blokaj (Non-Blocking)*
 
 ---
 
-## 1. Mimari Vizyon ve Felsefe
+## 1. Mimari Vizyon ve Temel İlkeler
 
-Bu veri yapısı; veteriner kliniklerinden oto servis/yıkamalara, elektronik teknik servislerden özel üretim atölyelerine kadar **herhangi bir fiziksel işletmenin operasyonlarını** yönetmek üzere tasarlanmıştır.
+Bu sistem; tek şubeli butik bir klinikten onlarca bayisi olan zincir oto servis/detailing ağlarına kadar **herhangi bir fiziksel işletmenin operasyonlarını** merkezi olarak yönetmek üzere tasarlanmıştır.
 
-### Temel İlkeler:
-1. **Her Şey Bir Süreçtir (Everything is a Process):** Sistemde yapay "aksiyon" ve "süreç" ayrımı yoktur. Süresi olan işler (`started_at != ended_at`) ile anlık olan işler (`started_at == ended_at`, 0 saniye) aynı temel nesnedir.
-2. **Gevşek Bağlılık (Loosely Coupled):** Hiçbir süreç veya adım bir personeli ya da başka bir süreci kilitlemez. Operasyonlar bağımsız yaşar, kaynaklarla (personel, lokasyon) serbestçe ilişkilendirilir.
-3. **Özyinelemeli Hiyerarşi (Recursive / Tree Structure):** Bir süreç içinde başka bir süreç başlayabilir, araya anlık işlemler girebilir, süreç bittiğinde peşine yeni bir süreç takılabilir.
-4. **Çift Yönlü QR Mimarisi:** Hem fiziksel alanlar (istasyonlar/odalar/kafesler) hem de varlıklar (müşteri aseti) QR kodlarla fiziksel dünyada sabitlenir.
+### Temel Prensipler:
+1. **Her Şey Bir Süreçtir (Unified Process):** "Aksiyon" ve "Süreç" ayrımı yoktur. Süresi olan işler (`started_at != ended_at`) ile anlık olan işler (`started_at == ended_at`, 0 saniye) aynı temel nesnedir.
+2. **Sıfır Tekrar ile Varlık Dolaşımı (Asset Roaming):** Müşteri ve varlık kayıtları üst çatı şirkete (Tenant) aittir. Bir varlık Kadıköy şubesinden Beşiktaş veya Bodrum bayisine gittiğinde yeniden oluşturulmaz; tüm servis ve müdahale geçmişiyle birlikte özgürce bayiler arasında dolaşır.
+3. **Birleşik Varlık Modeli (Customer & Business Assets):** Sistem sadece müşterinin getirdiği varlıkları değil (kedi, araba, telefon); işletmenin kendi demirbaşlarını da (ultrason cihazı, ikame araç, arıza tespit kiti) aynı varlık yapısıyla yönetir ve bayiler arasında transfer edebilir.
+4. **Gevşek Bağlılık ve Sıfır Blokaj (Zero Blocking):** Hiçbir kural çalışanı sahada kilitlemez. Süreçler personele tapulu değildir (havuzdan alınabilir, devredilebilir); barkodu olmayan bir ilaç veya parça anında orada adlandırılarak sürece bağlanabilir.
+5. **Özyinelemeli Ağaç Mimarisi (Recursive Execution):** Süreçler iç içe girebilir, araya anlık işlemler alabilir veya sıralı zincirler oluşturabilir.
+6. **Evrensel Tarayıcı (Universal Scanner):** Tek bir kamera vizörüyle mekan QR'ı, varlık QR'ı, müşteri fişi veya ilaç/parça barkodu taranır ve otomatik çözümlenir.
 
 ---
 
-## 2. Temel Varlıklar (Core Entities)
+## 2. Standart Sistem Tipleri (Core System Enums)
+
+Sistemin motorunu standartlaştıran ve kod seviyesinde güvenliği sağlayan çekirdek tipler:
+
+| Sistem Tipi | Değerler | Açıklama |
+| :--- | :--- | :--- |
+| **`SystemRole`** | `superadmin`, `tenant_owner`, `branch_manager`, `operator`, `viewer` | Kullanıcının sistem üzerindeki yetki sınırları. |
+| **`SessionStatus`** | `checked_in`, `in_service`, `ready_for_pickup`, `completed`, `cancelled` | Varlığın dükkandaki ana kabul/ziyaret evreleri. |
+| **`ProcessStatus`** | `queued`, `running`, `paused`, `completed`, `cancelled` | Canlı bir sürecin o anki çalışma durumu. |
+| **`ProcessKind`** | `durational`, `instant` | Süreli (başla/bitir) mi yoksa anlık (0 sn) mi? |
+| **`LocationKind`** | `holding`, `workbench`, `room`, `general` | Barınma/kafes mi, çalışma tezgahı mı, oda mı? |
+| **`AssetOwnerType`**| `customer`, `business` | Müşteri varlığı mı yoksa işletme demirbaşı mı? |
+| **`ScanTargetType`** | `location_qr`, `asset_qr`, `session_qr`, `consumable_barcode` | Kameranın okuduğu nesnenin çözümlenen tipi. |
+
+*(Not: Doktor, Usta, Hemşire gibi mesleki roller sistem tipi değil; adminin serbestçe tanımladığı `worker_titles`dır).*
+
+---
+
+## 3. Temel Varlıklar ve ER Diyagramı
 
 ```mermaid
 erDiagram
-    TENANT ||--o{ USER : employs
-    TENANT ||--o{ WORKER_TITLE : defines
-    TENANT ||--o{ LOCATION : operates
-    TENANT ||--o{ PROCESS_DEFINITION : configures
+    TENANT ||--o{ BRANCH : owns
     TENANT ||--o{ CUSTOMER : serves
-    
-    USER }|--|{ WORKER_TITLE : holds
+    TENANT ||--o{ ASSET : registers
+    TENANT ||--o{ WORKER_TITLE : defines
+    TENANT ||--o{ PROCESS_DEFINITION : configures
+    TENANT ||--o{ CONSUMABLE_ITEM : stocks
+
+    BRANCH ||--o{ LOCATION : contains
+    BRANCH ||--o{ USER : employs
+    BRANCH ||--o{ ASSET_SESSION : hosts
+    BRANCH }|--|{ PROCESS_DEFINITION : offers
+
     CUSTOMER ||--o{ ASSET : owns
-    
-    PROCESS_DEFINITION ||--o{ PROCESS_RELATION : parent
-    PROCESS_DEFINITION ||--o{ PROCESS_RELATION : child
-    
-    ASSET ||--o{ ASSET_SESSION : visits
-    LOCATION ||--o{ ASSET_SESSION : current_spot
-    
-    ASSET_SESSION ||--o{ LIVE_PROCESS : executes
+    USER }|--|{ WORKER_TITLE : holds
+
+    PROCESS_DEFINITION ||--o{ PROCESS_RELATION : parent_child
+
+    ASSET ||--o{ ASSET_SESSION : undergoes
+    LOCATION ||--o{ ASSET_SESSION : holds
+
+    ASSET_SESSION ||--o{ LIVE_PROCESS : contains
     PROCESS_DEFINITION ||--o{ LIVE_PROCESS : instantiates
     LIVE_PROCESS ||--o{ LIVE_PROCESS : parent_child
     LOCATION ||--o{ LIVE_PROCESS : occurs_at
     USER ||--o{ LIVE_PROCESS : operates
+    LIVE_PROCESS ||--o{ PROCESS_CONSUMABLE : uses
+    CONSUMABLE_ITEM ||--o{ PROCESS_CONSUMABLE : supplied_from
 ```
 
 ---
 
-## 3. Detaylı Veri Modeli ve Tablo Şeması
+## 4. Detaylı Veri Modeli ve Tablo Şeması (PostgreSQL DDL)
 
-### 3.1. İşletme ve Kişiler Katmanı
+### 4.1. İşletme ve Bayi (Şube) Katmanı
 
-#### `tenants` (İşletme)
-Platformda hizmet veren her bir işletme/organizasyon.
+#### `tenants` (Çatı Şirket / Organizasyon)
 ```sql
 CREATE TABLE tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(150) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
-    settings JSONB DEFAULT '{}', -- Logo, çalışma saatleri, bildirim ayarları
+    settings JSONB DEFAULT '{}', -- Logo, global renkler, fatura bilgileri
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-#### `worker_titles` (İşletme Unvanları / Mesleki Tipler)
-Patronun kendi sektörüne göre serbestçe tanımladığı unvanlar (Örn: Doktor, Hemşire, Kuaför, Usta, Çırak, Danışman).
+#### `branches` (Bayiler / Şubeler)
+İşletmeye bağlı fiziksel şubeler (Kadıköy, Beşiktaş, Bodrum vb.).
+```sql
+CREATE TABLE branches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(150) NOT NULL,          -- "Kadıköy Merkez Şube", "Beşiktaş Bayi"
+    code VARCHAR(50),                    -- "KDK-01", "BJK-02"
+    address TEXT,
+    phone VARCHAR(50),
+    is_active BOOLEAN DEFAULT TRUE,
+    metadata JSONB DEFAULT '{}',         -- Bayi özel çalışma saatleri, konum koordinatları
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+---
+
+### 4.2. Kişiler, Yetkiler ve Unvanlar Katmanı
+
+#### `worker_titles` (İşletme Unvanları - Dinamik Roller)
+Adminin kendi sektörüne göre serbestçe girdiği mesleki unvanlar.
 ```sql
 CREATE TABLE worker_titles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    title_name VARCHAR(100) NOT NULL, -- "Veteriner Hekim", "Detailing Ustası", "Teknisyen"
+    title_name VARCHAR(100) NOT NULL, -- "Başhekim", "Anestezi Teknikeri", "Detailing Ustası"
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
 #### `users` (Personel ve Yöneticiler)
-Sisteme giriş yapan gerçek kişiler.
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    default_branch_id UUID REFERENCES branches(id), -- Personelin ana bağlı olduğu şube
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     phone VARCHAR(50),
     
-    -- Sistemsel Yetki Rolü:
+    -- Standart Sistem Rolü:
     system_role VARCHAR(50) NOT NULL DEFAULT 'operator', 
-    -- 'owner' (patron), 'admin' (yönetici), 'operator' (çalışan), 'viewer' (sadece izleyici)
+    -- 'superadmin', 'tenant_owner', 'branch_manager', 'operator', 'viewer'
     
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -92,7 +138,7 @@ CREATE TABLE users (
 ```
 
 #### `user_title_assignments` (Kişi-Unvan Çoktan-Çoğa Eşleşmesi)
-Bir çalışan birden fazla işletme unvanına sahip olabilir (Tam esneklik).
+Bir çalışan birden fazla işletme unvanına sahip olabilir (Doktor + Cerrahi Uzmanı gibi).
 ```sql
 CREATE TABLE user_title_assignments (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -103,29 +149,31 @@ CREATE TABLE user_title_assignments (
 
 ---
 
-### 3.2. Fiziksel Mekanlar ve QR Kodlar
+### 4.3. Fiziksel Mekanlar ve QR Kodlar
 
-#### `locations` (İstasyonlar / Odalar / Alanlar)
-İşletmenin fiziksel koordinatları. Her lokasyonun duvara, masaya veya kafese yapıştırılan sabit bir QR kodu vardır.
+#### `locations` (İstasyonlar / Odalar / Kafesler)
+Fiziksel alanlar doğrudan bir **şubeye** aittir ve üzerlerinde sabit QR kodları taşırlar.
 ```sql
 CREATE TABLE locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,         -- "Kafes #1", "Ameliyathane 2", "Yıkama Peronu A", "Tezgah 3"
-    location_type VARCHAR(50) NOT NULL, -- "cage", "room", "table", "bay", "shelf", "general"
-    qr_code VARCHAR(100) NOT NULL UNIQUE, -- Sabit QR token (örn: loc_7a9f8b)
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE, -- Hangi bayide?
+    name VARCHAR(100) NOT NULL,         -- "Kafes #1", "Ameliyathane 2", "Yıkama Peronu A"
+    location_kind VARCHAR(50) NOT NULL DEFAULT 'holding', -- 'holding', 'workbench', 'room', 'general'
+    qr_code VARCHAR(100) NOT NULL UNIQUE, -- Sabit QR token (örn: loc_kdk_01)
     capacity INTEGER DEFAULT 1,         -- Aynı anda kaç varlık barınabilir?
-    metadata JSONB DEFAULT '{}',        -- Ekstra özellikler (örn: oksijen desteği var mı?)
+    metadata JSONB DEFAULT '{}',        -- Ekstra özellikler (lift tonajı, oksijen desteği vb.)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
 ---
 
-### 3.3. Müşteri ve Varlık (Asset) Katmanı
+### 4.4. Müşteri ve Birleşik Varlık (Asset) Katmanı
 
-#### `customers` (Müşteri)
-İşletmeye hizmet almaya gelen gerçek veya tüzel kişi.
+Müşteriler ve Varlıklar çatı işletmeye (Tenant) bağlıdır; bayiler arasında özgürce gezer (Roaming).
+
+#### `customers` (Müşteri - Tekil)
 ```sql
 CREATE TABLE customers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -133,111 +181,157 @@ CREATE TABLE customers (
     name VARCHAR(150) NOT NULL,
     phone VARCHAR(50) NOT NULL,
     email VARCHAR(150),
-    metadata JSONB DEFAULT '{}', -- Adres, vergi no, müşteri özel notu
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-#### `assets` (Müşteri Varlığı / Takip Edilen Şey)
-Müşteriye ait olan ve üzerinde işlem yapılan her şey (1 Müşteri $\rightarrow$ N Varlık).
+#### `assets` (Birleşik Varlık - Müşteri Aseti veya İşletme Demirbaşı)
 ```sql
 CREATE TABLE assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    name VARCHAR(150) NOT NULL,         -- "Tarçın", "34 ABC 123", "iPhone 15 Pro", "Elmas Kolye"
-    identifier VARCHAR(100),            -- Mikroçip No, Şasi No, IMEI, Seri No
-    qr_code VARCHAR(100) UNIQUE,        -- Varlığa yapıştırılan / tasmaya takılan dinamik etiket QR
-    metadata JSONB DEFAULT '{}',        -- Sektörel esnek veriler (Tür, Irk, Doğum Tarihi / Model, KM)
+    
+    -- Varlık Tipi:
+    owner_type VARCHAR(20) NOT NULL DEFAULT 'customer', -- 'customer' VEYA 'business'
+    
+    -- Müşteri Varlığı ise (Zorunlu):
+    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE, 
+    
+    -- İşletme Demirbaşı ise (Örn: Taşınabilir Ultrason, İkame Araç, Arıza Cihazı):
+    current_branch_id UUID REFERENCES branches(id), -- Demirbaş şu an hangi bayide?
+    
+    name VARCHAR(150) NOT NULL,         -- "Tarçın", "34 ABC 123", "Taşınabilir Ultrason Cihazı"
+    identifier VARCHAR(100),            -- Çip No, Şasi No, IMEI, Seri No
+    qr_code VARCHAR(100) UNIQUE,        -- Varlığa takılan/yapıştırılan etiket QR
+    metadata JSONB DEFAULT '{}',        -- Tür, Irk, Yaş / Marka, Model, KM
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
 ---
 
-### 3.4. Süreç Şablon Kütüphanesi (Admin Tanımları)
+### 4.5. Süreç Şablon Kütüphanesi ve Bayi Uyarlaması
 
-Adminin web panelinden tanımladığı bağımsız Lego parçaları ve bunların birbirine bağlanması.
-
-#### `process_definitions` (Süreç ve Adım Şablonları)
+#### `process_definitions` (Lego Şablonları)
 ```sql
 CREATE TABLE process_definitions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(150) NOT NULL,          -- "Genel Bakım", "Yıkama", "Tıraş", "Mama Verme", "Aşı"
-    is_instant BOOLEAN DEFAULT FALSE,   -- TRUE: Anlık Olay (0 sn), FALSE: Süreli Süreç (Başla/Bitir)
-    default_location_id UUID REFERENCES locations(id), -- Önerilen varsayılan lokasyon
-    is_customer_visible BOOLEAN DEFAULT TRUE,          -- Müşteri takip ekranında görünsün mü?
-    customer_label VARCHAR(255),         -- Müşteriye görünecek dil (örn: "Dostunuzun bakımı yapılıyor")
-    icon VARCHAR(50),                    -- Mobilde görünecek ikon
-    metadata_schema JSONB DEFAULT '{}',  -- Form/giriş alanları şeması (ör. kilo, ateş, parça no)
+    name VARCHAR(150) NOT NULL,          -- "Genel Bakım", "Yıkama", "Tıraş", "Mama Verme"
+    is_instant BOOLEAN DEFAULT FALSE,   -- TRUE: Anlık Olay (0 sn), FALSE: Süreli Süreç
+    default_location_id UUID REFERENCES locations(id),
+    is_customer_visible BOOLEAN DEFAULT TRUE,
+    customer_label VARCHAR(255),         -- Müşteriye görünecek bildirim dili
+    icon VARCHAR(50),
+    metadata_schema JSONB DEFAULT '{}',  -- Form/giriş alanları (kilo, ateş, parça no)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-#### `process_relations` (Şablon Kompozisyonu / İç İçe ve Sıralı Bağlama)
+#### `process_relations` (Şablon Kompozisyonu)
 Süreçlerin birbirine prangalanmadan, ilişkisel olarak önerilmesini sağlayan tablo.
 ```sql
 CREATE TABLE process_relations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_definition_id UUID NOT NULL REFERENCES process_definitions(id) ON DELETE CASCADE,
     child_definition_id UUID NOT NULL REFERENCES process_definitions(id) ON DELETE CASCADE,
-    sort_order INTEGER DEFAULT 0,        -- Varsayılan sıra önerisi
-    is_optional BOOLEAN DEFAULT TRUE     -- Çalışan bu adımı atlayabilir mi?
+    sort_order INTEGER DEFAULT 0,
+    is_optional BOOLEAN DEFAULT TRUE
+);
+```
+
+#### `process_branch_availability` (Süreç $\leftrightarrow$ Bayi İlişkisi)
+Hangi süreç hangi bayide mevcut? *(Tabloda kayıt yoksa: Süreç TÜM bayilerde geçerlidir).*
+```sql
+CREATE TABLE process_branch_availability (
+    process_definition_id UUID NOT NULL REFERENCES process_definitions(id) ON DELETE CASCADE,
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    PRIMARY KEY (process_definition_id, branch_id)
 );
 ```
 
 ---
 
-### 3.5. Canlı İşleyiş Katmanı (Runtime Execution)
+### 4.6. Sarf Malzeme, İlaç ve Parça Tüketimi Katmanı
 
-#### `asset_sessions` (Varlığın İşletmedeki Yaşam Döngüsü / Ziyaret)
-Varlığın kapıdan girdiği an başlayan, teslim edilene kadar açık kalan en üst çatı.
+#### `consumable_items` (Malzeme / İlaç / Parça Kataloğu)
+```sql
+CREATE TABLE consumable_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(150) NOT NULL,          -- "Amoklavin 500mg", "Castrol 5W-30", "iPhone 13 Ekran"
+    barcode VARCHAR(100) UNIQUE,         -- İlacın/kutunun orijinal GTIN/EAN barkodu
+    unit VARCHAR(20) DEFAULT 'adet',     -- 'adet', 'ml', 'kutu', 'litre', 'doz'
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### `process_consumables` (Süreçte Kullanılan Sarf Malzemeler)
+```sql
+CREATE TABLE process_consumables (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    process_id UUID NOT NULL REFERENCES live_processes(id) ON DELETE CASCADE,
+    item_id UUID REFERENCES consumable_items(id),
+    custom_name VARCHAR(150),                     -- Katalogda yoksa o an yazılan ad
+    barcode_scanned VARCHAR(100),
+    quantity NUMERIC(10, 2) DEFAULT 1,
+    administered_by_id UUID REFERENCES users(id),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+---
+
+### 4.7. Canlı Operasyon ve Yaşam Döngüsü (Runtime Execution)
+
+#### `asset_sessions` (Varlığın Bayideki Ziyaret Oturumu)
+Varlığın belirli bir bayiye girdiği an başlayan ve çıkana kadar açık kalan en üst çatı.
 ```sql
 CREATE TABLE asset_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE, -- Hangi bayide misafir?
     asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,      -- Müşteri aseti ise
     
-    status VARCHAR(50) NOT NULL DEFAULT 'open', 
-    -- 'open' (dükkanda işlem görüyor), 'ready_for_pickup' (bitti, teslim bekliyor), 'closed' (teslim edildi)
+    status VARCHAR(50) NOT NULL DEFAULT 'checked_in', 
+    -- 'checked_in', 'in_service', 'ready_for_pickup', 'completed', 'cancelled'
     
-    current_location_id UUID REFERENCES locations(id), -- Şu an fiziki olarak hangi istasyonda/kafeste?
-    
-    tracking_token VARCHAR(100) NOT NULL UNIQUE,       -- Müşteri canlı takip linki token'ı
+    current_location_id UUID REFERENCES locations(id), -- Şu an hangi kafeste/peronda?
+    tracking_token VARCHAR(100) NOT NULL UNIQUE,       -- Müşteri canlı takip linki
     
     check_in_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    check_out_at TIMESTAMP WITH TIME ZONE              -- Teslim edilince dolar
+    check_out_at TIMESTAMP WITH TIME ZONE
 );
 ```
 
-#### `live_processes` (Canlı Süreç Ağacı - Başlayan, Biten, Araya Giren İşler)
-İster 2 günlük yatış, ister 40 dakikalık tıraş, ister 1 saniyelik mama verme, ister araya giren acil dikiş müdahalesi... Hepsi bu tablodaki bir düğümdür (`Node`).
+#### `live_processes` (Canlı Süreç Ağacı)
+İster 2 günlük yatış, ister 40 dakikalık tıraş, ister anlık mama verme veya beklenmedik acil dikiş müdahalesi...
 ```sql
 CREATE TABLE live_processes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES asset_sessions(id) ON DELETE CASCADE,
-    definition_id UUID REFERENCES process_definitions(id), -- Hangi şablondan türedi? (Serbest ise NULL)
+    definition_id UUID REFERENCES process_definitions(id),
     
-    -- Özyinelemeli İlişkiler:
-    parent_id UUID REFERENCES live_processes(id) ON DELETE CASCADE, -- İç içe süreçler için
-    previous_id UUID REFERENCES live_processes(id),                 -- Sıralı akış zinciri için
+    -- Özyinelemeli İlişkiler (Ağaç):
+    parent_id UUID REFERENCES live_processes(id) ON DELETE CASCADE,
+    previous_id UUID REFERENCES live_processes(id),
     
-    name VARCHAR(150) NOT NULL,          -- "Tıraş", "Pansuman", "Mama Verildi"
-    status VARCHAR(50) NOT NULL,         -- 'queued', 'running', 'paused', 'completed', 'cancelled'
+    name VARCHAR(150) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'queued', -- 'queued', 'running', 'paused', 'completed', 'cancelled'
     
-    -- Fiziksel Mekan:
-    location_id UUID REFERENCES locations(id), -- O an nerede yapıldı/yapılıyor?
-    
-    -- Operatör / Çalışan (Kilitleyici değil, ilişkisel):
-    assigned_operator_id UUID REFERENCES users(id), -- Süreci üzerine alan / atanan
-    completed_by_id UUID REFERENCES users(id),      -- Süreci tamamlayan / kapatan
+    -- İlişkili Kaynaklar (Blokajsız):
+    location_id UUID REFERENCES locations(id),
+    assigned_operator_id UUID REFERENCES users(id),
+    completed_by_id UUID REFERENCES users(id),
     
     -- Zaman Çizelgesi:
     started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    ended_at TIMESTAMP WITH TIME ZONE,              -- Anlık işlemlerde started_at ile aynıdır
-    duration_seconds INTEGER,                       -- Otomatik hesaplanan süre
+    ended_at TIMESTAMP WITH TIME ZONE,
+    duration_seconds INTEGER,
     
     -- Müşteri İletişimi:
     is_customer_visible BOOLEAN DEFAULT TRUE,
@@ -245,13 +339,12 @@ CREATE TABLE live_processes (
     
     -- Kanıt & Ekstra Veriler:
     notes TEXT,
-    photos JSONB DEFAULT '[]',           -- ["https://s3.../photo1.jpg"]
-    metadata JSONB DEFAULT '{}'          -- Ateş, kilo, kullanılan malzeme vb.
+    photos JSONB DEFAULT '[]',
+    metadata JSONB DEFAULT '{}'
 );
 ```
 
 #### `live_process_operators` (Çoklu Operatör Katılımı)
-Bir ameliyatta veya oto yıkamada birden fazla çalışan aynı süreç üzerinde eşzamanlı çalışabilir.
 ```sql
 CREATE TABLE live_process_operators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -262,86 +355,55 @@ CREATE TABLE live_process_operators (
 );
 ```
 
-### 3.6. Sarf Malzeme, İlaç ve Parça Tüketimi Katmanı
-
-İşlemler sırasında kullanılan ilaç, serum, şampuan, yedek parça, motor yağı vb. sarf malzemelerin sürece ilişkilendirilmesi.
-
-#### `consumable_items` (Malzeme / İlaç / Parça Kataloğu)
-İşletmenin kullandığı sarf ürünler. Önceden admin panelden girilebilir veya sahada çalışan tarafından barkod okutulduğu an hızlıca kaydedilebilir.
-```sql
-CREATE TABLE consumable_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(150) NOT NULL,          -- "Amoklavin 500mg", "Castrol 5W-30", "Kene Damlası", "iPhone 13 Ekran"
-    barcode VARCHAR(100) UNIQUE,         -- İlacın/kutunun orijinal GTIN/EAN barkodu
-    unit VARCHAR(20) DEFAULT 'adet',     -- 'adet', 'ml', 'kutu', 'litre', 'doz'
-    metadata JSONB DEFAULT '{}',         -- Dozaj, üretici, kritik stok seviyesi
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-#### `process_consumables` (Süreçte Kullanılan Sarf Malzemeler)
-Hangi süreçte hangi ilaç/parça ne kadar kullanıldı? Hiçbir süreci kilitlemez; opsiyoneldir.
-```sql
-CREATE TABLE process_consumables (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    process_id UUID NOT NULL REFERENCES live_processes(id) ON DELETE CASCADE,
-    item_id UUID REFERENCES consumable_items(id), -- Katalogdaki ürün (varsa)
-    custom_name VARCHAR(150),                     -- Katalogda yoksa o an serbestçe yazılan ad
-    barcode_scanned VARCHAR(100),                 -- Okutulan fiziksel barkod
-    quantity NUMERIC(10, 2) DEFAULT 1,            -- Miktar (ör: 2.5 ml, 1 adet, 4 litre)
-    administered_by_id UUID REFERENCES users(id), -- Hangi çalışan kullandı/enjekte etti?
-    notes TEXT,                                   -- "Sağ koldan uygulandı"
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
 ---
 
-## 4. Evrensel Tarayıcı (Universal Scanner) ve Sıfır Blokajlı İşleyiş
+## 5. Evrensel Tarayıcı (Universal Scanner) ve Sıfır Blokaj
 
-Sahada çalışan personelin (eldivenli hekim, yağlı usta) ekranda uzun aramalar yapmasını engellemek için **tek bir kamera vizörü** ile tüm fiziksel nesneler taranır ve çözümlenir:
+Sahadaki personelin ekranda kaybolmasını engellemek için **tek bir kamera vizörü** tüm fiziksel nesneleri anında tanır:
 
 ```
                       ┌─── [1. 'loc_' ile başlıyorsa] ──► FİZİKSEL MEKAN (Kafes/Masa/Peron)
-                      │                                    ➔ İstasyon kartını aç / transfer et
+                      │                                    ➔ İstasyon kartını aç / varlığı transfer et
                       │
-                      ├─── [2. 'ast_' ile başlıyorsa] ──► MÜŞTERİ VARLIĞI (Hasta/Araç/Cihaz)
-[KAMERA VİZÖRÜ] ──────┼                                    ➔ Canlı ziyaret kartını aç
+                      ├─── [2. 'ast_' ile başlıyorsa] ──► VARLIK (Müşteri Aseti veya İşletme Demirbaşı)
+[KAMERA VİZÖRÜ] ──────┼                                    ➔ Canlı ziyaret kartını aç / detayını gör
                       │
-                      ├─── [3. Sistemde Kayıtlı Barkod] ─► SARF MALZEME (İlaç / Parça)
+                      ├─── [3. 'ses_' ile başlıyorsa] ──► BİLET / ZİYARET TAKİBİ
+                      │                                    ➔ Doğrudan aktif oturumu aç
+                      │
+                      ├─── [4. Sistemde Kayıtlı Barkod] ─► SARF MALZEME (İlaç / Parça / Şampuan)
                       │                                    ➔ Açık olan sürece anında iliştir!
                       │
-                      └─── [4. Sistemde Tanımsız Barkod] ─► ANINDA EKLE (On-The-Fly / JIT)
+                      └─── [5. Tanımsız / Yeni Barkod] ──► ANINDA EKLE (On-The-Fly / JIT)
                                                            ➔ "Ürün Adı:" yaz ➔ Kaydet!
                                                            ➔ Hem kataloğa eklenir hem sürece bağlanır.
 ```
 
-### Sıfır Blokaj (Non-Blocking) Garantisi:
-1. **Kamera Şart Değildir:** Barkod silikse, kamera yoksa veya bozulursa çalışan **listeden arama / filtreleme** ile her varlığı, mekanı veya ilacı seçebilir.
-2. **Katalogda Olmama Hatası Yoktur:** Okutulan bir ilaç veya parça sistemde tanımlı değilse sistem hata verip durdurmaz; hemen orada adını girip sürece bağlamaya izin verir.
-3. **Rol Kilidi Yoktur:** Bir işlemi başlatmak veya ilacı kaydetmek için belirli bir çalışana yapışık olmak gerekmez; o an işlemi yapan kimse onun imzasıyla kaydedilir.
+### Sıfır Blokaj Garantileri:
+1. **Kamera Şart Değildir:** Kamera yoksa çalışan her zaman **arama kutusundan** veya listeden seçim yapabilir.
+2. **Katalogda Olmama Hatası Yoktur:** Sistem "Kayıtlı ürün yok" deyip durdurmaz; anında adını girip kullanmaya izin verir.
+3. **Rol Kilidi Yoktur:** Süreci herhangi bir yetkili çalışan başlatabilir, başka bir çalışan devralıp bitirebilir.
 
 ---
 
-## 5. Stres Testi Senaryoları ile Doğrulama
+## 6. Doğrulama Senaryoları (Stres Testleri)
 
-### Senaryo 1: Standart Akış
-1. Kedi "Tarçın" kliniğe girer $\rightarrow$ `asset_sessions` açılır.
-2. `live_processes` içine "Genel Bakım" (running) eklenir.
-3. İçine alt süreç "Yıkama" eklenir $\rightarrow$ Biter.
-4. İçine alt süreç "Tıraş" eklenir $\rightarrow$ Biter.
-5. "Genel Bakım" biter.
-6. Tarçın Kafes #2'ye alınır (`current_location_id = Kafes 2`, `session.status = ready_for_pickup`).
-7. Müşteri gelir, teslim edilir $\rightarrow$ `session.status = closed`.
+### Senaryo 1: Bayiler Arası Varlık Dolaşımı (Asset Roaming)
+1. Kedi "Tarçın" Kadıköy Şubesine gelir $\rightarrow$ `branch_id: Kadıköy` ile ziyaret açılır, aşıları yapılır ve tamamlanır.
+2. 3 ay sonra sahibi Tarçın'ı Beşiktaş Şubesine getirir.
+3. Beşiktaş çalışanı Tarçın'ın QR'ını okutur $\rightarrow$ Sistem anında Tarçın'ın tüm geçmişini ve Kadıköy'deki aşılarını gösterir.
+4. Yeni bir ziyaret açılır (`branch_id: Beşiktaş`).
+5. **Sonuç:** Mükerrer müşteri veya kedi kaydı AÇILMAZ. Bilgi kaybı yaşanmaz.
 
-### Senaryo 2: Beklenmedik Olay / Acil Müdahale ve İlaç Kullanımı
-1. Tıraş devam ederken kaza gerçekleşir (kesik oluşur).
-2. Kuaför veya hekim Tarçın'ın ekranında tek tıkla `[+ Acil Müdahale]` sürecini açar (`parent_id: Genel Bakım` veya bağımsız).
-3. Hekim dolaptan aldığı antibiyotiğin barkodunu kameraya tutar:
-   * İlaç daha önce sisteme girilmediyse: Ekranda *"Yeni İlaç: Adı girin"* der $\rightarrow$ *"Sprey Antibiyotik"* yazar.
-   * `process_consumables` tablosuna anında 1 doz eklenir.
-4. Dikiş atılır, fotoğraf yüklenir, müdahale `status: completed` yapılır.
-5. Tıraş sürecine dönülür ve işlem tamamlanır.
-6. **Sonuç:** Hiçbir aşamada sistem çalışanı engellememiştir; hem kaza müdahalesi hem kullanılan ilaç tek bir akışta kusursuzca arşivlenmiştir.
+### Senaryo 2: Beklenmedik Kaza ve Anında İlaç Barkodu Okutma
+1. Tıraş devam ederken makine kesik yapar.
+2. Kuaför Tarçın'ın kartında `[+ Acil Müdahale]` sürecini başlatır (`operator: Dr. Mehmet`).
+3. Dr. Mehmet ecza dolabından aldığı spreyin barkodunu kameraya tutar $\rightarrow$ Barkod sistemde yoksa bile ekranda *"Yeni İlaç Adı:"* çıkar, *"Yara Spreyi"* yazar ve kaydeder.
+4. Dikiş tamamlanır, fotoğraf çekilir, süreç kapanır.
+5. Kuaför tıraş sürecine dönüp işlemi tamamlar.
+6. **Sonuç:** Sistem bir saniye bile duraksamamış, hem tıbbi müdahale hem kuaförlük tek bir akışta birleşmiştir.
 
+### Senaryo 3: İşletme Demirbaşı Kullanımı ve Transferi
+1. İşletmeye ait "Taşınabilir Röntgen Cihazı" Kadıköy Şubesinde kayıtlıdır (`owner_type: business`, `current_branch_id: Kadıköy`).
+2. Beşiktaş Şubesinde acil bir vaka çıkar; cihaz Beşiktaş'a transfer edilir (`current_branch_id = Beşiktaş`).
+3. Cihazın periyodik bakım veya kalibrasyon süreçleri tıpkı bir canlı süreç gibi sistem üzerinden işletilir.
