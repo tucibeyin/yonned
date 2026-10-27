@@ -262,22 +262,65 @@ CREATE TABLE live_process_operators (
 );
 ```
 
+### 3.6. Sarf Malzeme, İlaç ve Parça Tüketimi Katmanı
+
+İşlemler sırasında kullanılan ilaç, serum, şampuan, yedek parça, motor yağı vb. sarf malzemelerin sürece ilişkilendirilmesi.
+
+#### `consumable_items` (Malzeme / İlaç / Parça Kataloğu)
+İşletmenin kullandığı sarf ürünler. Önceden admin panelden girilebilir veya sahada çalışan tarafından barkod okutulduğu an hızlıca kaydedilebilir.
+```sql
+CREATE TABLE consumable_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(150) NOT NULL,          -- "Amoklavin 500mg", "Castrol 5W-30", "Kene Damlası", "iPhone 13 Ekran"
+    barcode VARCHAR(100) UNIQUE,         -- İlacın/kutunun orijinal GTIN/EAN barkodu
+    unit VARCHAR(20) DEFAULT 'adet',     -- 'adet', 'ml', 'kutu', 'litre', 'doz'
+    metadata JSONB DEFAULT '{}',         -- Dozaj, üretici, kritik stok seviyesi
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### `process_consumables` (Süreçte Kullanılan Sarf Malzemeler)
+Hangi süreçte hangi ilaç/parça ne kadar kullanıldı? Hiçbir süreci kilitlemez; opsiyoneldir.
+```sql
+CREATE TABLE process_consumables (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    process_id UUID NOT NULL REFERENCES live_processes(id) ON DELETE CASCADE,
+    item_id UUID REFERENCES consumable_items(id), -- Katalogdaki ürün (varsa)
+    custom_name VARCHAR(150),                     -- Katalogda yoksa o an serbestçe yazılan ad
+    barcode_scanned VARCHAR(100),                 -- Okutulan fiziksel barkod
+    quantity NUMERIC(10, 2) DEFAULT 1,            -- Miktar (ör: 2.5 ml, 1 adet, 4 litre)
+    administered_by_id UUID REFERENCES users(id), -- Hangi çalışan kullandı/enjekte etti?
+    notes TEXT,                                   -- "Sağ koldan uygulandı"
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
 ---
 
-## 4. QR Kod İşleyiş Mekanizması
+## 4. Evrensel Tarayıcı (Universal Scanner) ve Sıfır Blokajlı İşleyiş
 
-Sistemde QR okutma 3 temel akışta çalışır:
+Sahada çalışan personelin (eldivenli hekim, yağlı usta) ekranda uzun aramalar yapmasını engellemek için **tek bir kamera vizörü** ile tüm fiziksel nesneler taranır ve çözümlenir:
 
-1. **Sabit Lokasyon QR'ı (İstasyon Tespiti):**
-   * Çalışan kafesteki QR'ı okutur (`loc_cage_01`).
-   * Mobil uygulama anında o lokasyonun kartını açar: 
-     * İçinde varlık varsa: O varlığın aktif süreçleri ve hızlı işlem butonları listelenir.
-     * Boş ise: *"Bu istasyona varlık yerleştir"* seçeneği çıkar.
-2. **Dinamik Varlık QR'ı (Hasta / Araç / Cihaz Tespiti):**
-   * Çalışan varlığın tasmasındaki/camındaki etiketi okutur (`ast_99182`).
-   * Mobil uygulama doğrudan o varlığın açık olan `asset_session` kartını açar.
-3. **Mekan Doğrulamalı Süreç Başlatma (Opsiyonel Güvenlik):**
-   * Süreç başlatılırken çalışandan fiziksel mekanın QR'ını okutması istenerek personelin fiziken orada olduğu kanıtlanır.
+```
+                      ┌─── [1. 'loc_' ile başlıyorsa] ──► FİZİKSEL MEKAN (Kafes/Masa/Peron)
+                      │                                    ➔ İstasyon kartını aç / transfer et
+                      │
+                      ├─── [2. 'ast_' ile başlıyorsa] ──► MÜŞTERİ VARLIĞI (Hasta/Araç/Cihaz)
+[KAMERA VİZÖRÜ] ──────┼                                    ➔ Canlı ziyaret kartını aç
+                      │
+                      ├─── [3. Sistemde Kayıtlı Barkod] ─► SARF MALZEME (İlaç / Parça)
+                      │                                    ➔ Açık olan sürece anında iliştir!
+                      │
+                      └─── [4. Sistemde Tanımsız Barkod] ─► ANINDA EKLE (On-The-Fly / JIT)
+                                                           ➔ "Ürün Adı:" yaz ➔ Kaydet!
+                                                           ➔ Hem kataloğa eklenir hem sürece bağlanır.
+```
+
+### Sıfır Blokaj (Non-Blocking) Garantisi:
+1. **Kamera Şart Değildir:** Barkod silikse, kamera yoksa veya bozulursa çalışan **listeden arama / filtreleme** ile her varlığı, mekanı veya ilacı seçebilir.
+2. **Katalogda Olmama Hatası Yoktur:** Okutulan bir ilaç veya parça sistemde tanımlı değilse sistem hata verip durdurmaz; hemen orada adını girip sürece bağlamaya izin verir.
+3. **Rol Kilidi Yoktur:** Bir işlemi başlatmak veya ilacı kaydetmek için belirli bir çalışana yapışık olmak gerekmez; o an işlemi yapan kimse onun imzasıyla kaydedilir.
 
 ---
 
@@ -292,10 +335,13 @@ Sistemde QR okutma 3 temel akışta çalışır:
 6. Tarçın Kafes #2'ye alınır (`current_location_id = Kafes 2`, `session.status = ready_for_pickup`).
 7. Müşteri gelir, teslim edilir $\rightarrow$ `session.status = closed`.
 
-### Senaryo 2: Beklenmedik Olay / Acil Müdahale (Non-Blocking Testi)
-1. Tıraş devam ederken kaza gerçekleşir.
-2. Açık olan "Tıraş" süreci `status: paused` yapılır (veya açık bırakılır).
-3. Hekim hemen yeni bir süreç oluşturur: "Acil Dikiş & Müdahale" (`status: running`, `operator: Dr. Mehmet`).
-4. Dikiş atılır, fotoğraf yüklenir, süreç `status: completed` yapılır.
-5. Kuaför duraklatılan "Tıraş" sürecine geri döner, tamamlar.
-6. **Sonuç:** Hiçbir sistem hatası oluşmaz; hem tıbbi müdahale hem kuaförlük süreci tek bir zaman tünelinde eksiksiz kayıt altına alınır.
+### Senaryo 2: Beklenmedik Olay / Acil Müdahale ve İlaç Kullanımı
+1. Tıraş devam ederken kaza gerçekleşir (kesik oluşur).
+2. Kuaför veya hekim Tarçın'ın ekranında tek tıkla `[+ Acil Müdahale]` sürecini açar (`parent_id: Genel Bakım` veya bağımsız).
+3. Hekim dolaptan aldığı antibiyotiğin barkodunu kameraya tutar:
+   * İlaç daha önce sisteme girilmediyse: Ekranda *"Yeni İlaç: Adı girin"* der $\rightarrow$ *"Sprey Antibiyotik"* yazar.
+   * `process_consumables` tablosuna anında 1 doz eklenir.
+4. Dikiş atılır, fotoğraf yüklenir, müdahale `status: completed` yapılır.
+5. Tıraş sürecine dönülür ve işlem tamamlanır.
+6. **Sonuç:** Hiçbir aşamada sistem çalışanı engellememiştir; hem kaza müdahalesi hem kullanılan ilaç tek bir akışta kusursuzca arşivlenmiştir.
+
