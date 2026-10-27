@@ -157,10 +157,10 @@ Bu akışkanlık sayesinde kullanıcı hiçbir zaman iki farklı uygulama indirm
 
 ## 7. VARLIK PAYLAŞIMI VE SADE YETKİ FELSEFESİ (ASSET SHARING)
 
-Yonned'de kafa karıştıran roller veya katı paketler yoktur. 
+Yonned'de kafa karıştıran roller, karmaşık matrisler veya katı paketler yoktur. 
 Tek bir evrensel gerçek vardır:
 
-> **"Kişi kendi asetin patronudur. Varlığını dilediği insanla paylaşabilir; paylaşılan kişinin haklarını tamamen bağımsız seçebileceği 4 temel izinle kendisi belirler:"**
+> **"Kişi kendi asetin patronudur. Varlığını dilediği insanla paylaşabilir; paylaşılan kişinin haklarını tamamen bağımsız seçebileceği 4 temel izinle kendisi belirler."**
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -179,10 +179,50 @@ Tek bir evrensel gerçek vardır:
 ```
 
 ### Hayatın İçinden Örnek Kombinasyonlar:
-* **Stajyer / Yeni Asistan:** `Görüntüle: Açık`, `Ekle: Açık`, `Değiştir: Kapalı`, `Sil: Kapalı` *(Yeni ameliyat notu ekleyebilir ama geçmişi manipüle edemez veya silemez - Hukuki Güvenlik).*
-* **Eş / Tam Ortak:** Dördü birden açık (`Görüntüle + Değiştir + Ekle + Sil`).
-* **Müşteri Yakını / Sessiz Ortak:** Yalnızca `Görüntüle: Açık`.
-* **Usta / Hekim:** `Görüntüle: Açık`, `Değiştir: Açık`, `Ekle: Açık`, `Sil: Kapalı`.
+* **Stajyer / Yeni Asistan:** `Görüntüle: Açık`, `Ekle: Açık`, `Değiştir: Kapalı`, `Sil: Kapalı` *(Yeni ameliyat notu veya acil durum ekleyebilir ama geçmiş veriyi değiştiremez veya silemez - Hukuki ve Tıbbi Güvenlik).*
+* **Eş / Eşit Ortak:** Dördü birden açık (`Görüntüle + Değiştir + Ekle + Sil`).
+* **Müşteri / Sessiz Ortak / Gözlemci:** Yalnızca `Görüntüle: Açık`.
+* **Kıdemli Usta / Hekim:** `Görüntüle: Açık`, `Değiştir: Açık`, `Ekle: Açık`, `Sil: Kapalı`.
+
+---
+
+## 8. EVRENSEL ASET PARADİGMASI: "HER ŞEY BİR ASETTİR"
+*(The Universal Asset Paradigm: Symmetry of Person, Thing, and Process)*
+
+Yonned dünyasında mimari ve zihinsel sadeliğin zirvesi şudur:
+**Kişi (İnsan), Fiziksel Olan Şey (Mekan & Nesne) ve Fiziksel/Zamansal Süreç (İş & Eylem) aslında tek ve aynı "Aset" mantığıyla davranır.**
+
+```
+                                ┌───────────────────────────┐
+                                │     EVRENSEL ASET (ASSET) │
+                                └─────────────┬─────────────┘
+                                              │
+             ┌────────────────────────────────┼────────────────────────────────┐
+             ▼                                ▼                                ▼
+    [ 🏢 FİZİKSEL ŞEY ]              [ ⏱️ ZAMANSAL SÜREÇ ]             [ 👤 İNSAN / AKTÖR ]
+    • Klinik / Dükkan                • Ameliyat / Operasyon            • Veteriner Hekim
+    • Kat, Oda, Kafes, Lift          • Periyodik Bakım                 • Usta / Teknisyen
+    • Kedi (Tarçın), Araba (BMW)     • Tıraş / Pansuman                • Stajyer / Çırak
+    • İlaç / Sarf Malzemesi          • Aşı / Anlık Müdahale            • Müşteri / Varlık Sahibi
+             │                                │                                │
+             └────────────────────────────────┼────────────────────────────────┘
+                                              │
+                                              ▼
+                         ORTAK DAVRANIŞ VE YETKİ MODELİ:
+                     ┌───────────────────────────────────┐
+                     │  1. GÖRÜNTÜLE  (can_view)         │
+                     │  2. DEĞİŞTİR   (can_edit)         │
+                     │  3. EKLE       (can_add)          │
+                     │  4. SİL        (can_delete)       │
+                     └───────────────────────────────────┘
+```
+
+### Neden Bu Paradigma Devrimseldir?
+1. **Zihinsel Yük Sıfırdır:** Kullanıcı ya da yazılımcı farklı nesneler için 10 farklı izin ve rol sistemi öğrenmez. Kliniği ortağıyla paylaşırken de, kedisini eşiyle paylaşırken de, bir ameliyat sürecini stajyere devrederken de aynı 4 kutuyu (Görüntüle, Değiştir, Ekle, Sil) kullanır.
+2. **Süreç Bir Asettir:** Bir ameliyat veya detaylı araç restorasyonu zaman içinde yaşayan dinamik bir varlıktır. Tıpkı bir araba gibi; kimin yürüttüğü (sahibi/operatörü), hangi aşamada olduğu, geçmiş kayıtları ve fotoğrafları vardır. Müşteriye paylaşıldığında sadece `Görüntüle` yetkisi verilir; cerraha `Görüntüle + Değiştir + Ekle` yetkisi verilir.
+3. **İnsan Bir Varlıktır:** İnsan bir yandan sisteme giriş yapan bilinçtir; diğer yandan işletme için bir yetkinlik ve çalışma kapasitesidir. Bir şubeye hekim veya çırak atamak, o kişiyi işletme aset ağacına bağlamaktan ve ona 4 fiilden gerekenleri tanımaktan ibarettir.
+4. **Hizmet Veren & Hizmet Alan Simetrisi:** İster hizmet satan bir patron ol, ister hizmet alan bir müşteri; sistemle kurduğun ilişki değişmez: Varlığını seç, izinlerini belirle ve akışı başlat.
+
 
 
 

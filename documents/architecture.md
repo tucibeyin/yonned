@@ -14,11 +14,19 @@ Geleneksel yazılımlar sektöre göre katılaşır: Veteriner için ayrı, oto 
 * **Sahada Blokaj:** Tıraş sırasında kaza olup dikiş gerektiğinde veya barkodu sisteme girilmemiş yeni bir ilaç geldiğinde; geleneksel yazılım *"Önce süreci iptal et"* veya *"Bu barkod kayıtlı değil"* diyerek personeli kilitler. Personel tableti fırlatır, kağıt-kaleme döner.
 * **Mekansal Katılık:** Bir şube 2 katlıdır, diğer şube tek katlıdır; birinde 5 kafes vardır, diğerinde açık peron. Katı tablolar bu esnekliği taşıyamaz.
 
-### 1.2. Çözüm: Kutsal Üçlü (The Ontological Trinity)
-Fiziksel dünyadaki tüm işletme operasyonları sadece **üç evrensel soruya** indirgenmiştir:
-1. **KİM? $\rightarrow$ KİŞİ (Person):** Hizmet veren (düzenleyici) veya hizmet alan (sorgulayıcı) insanlar.
-2. **NE & NEREDE? $\rightarrow$ ASET (Asset):** İşletmenin kendisi, bayisi, katı, odası, masası, cihazı, ilacı ve müşterinin getirdiği canlı/eşya (özyinelemeli tek ağaç).
-3. **NE OLUYOR? $\rightarrow$ SÜREÇ (Process):** Kişilerin asetler üzerinde, belirli mekanlarda zaman içinde icra ettiği tüm olaylar ve yaşam döngüleri.
+### 1.2. Çözüm: Kutsal Üçlü ve Evrensel Aset Paradigması (The Universal Asset Paradigm)
+Fiziksel dünyadaki tüm işletme operasyonları ve varlık ilişkileri tek ve simetrik bir gerçeğe indirgenmiştir:
+**"Kişi, Fiziksel Olan Şey ve Fiziksel/Zamansal Süreç aslında tek bir Aset gibi davranır."**
+
+1. **FİZİKSEL ASET (Physical Asset):** İşletmenin kendisi, bayisi, katı, odası, masası, cihazı, ilacı ve müşterinin getirdiği canlı/eşya (özyinelemeli tek ağaç: `parent_id`).
+2. **SÜREÇ ASETİ (Temporal Asset / Process):** Zaman boyutunda yaşayan varlıklar (Ameliyat, Bakım, Tıraş, Muayene). Başlangıcı, bitişi, durumu, fotoğrafları ve alt adımları vardır.
+3. **İNSAN / AKTÖR (Human Asset / Person):** Sisteme kimlik doğrulamasıyla (Auth/JWT) bağlanan bilinç; işletme açısından ise yetkinlik ve çalışma kapasitesi.
+
+Tüm bu varlıklar tek bir ortak yetki modeliyle yönetilir ve paylaşılır:
+* **1. GÖRÜNTÜLE (`can_view`):** Varlığı, konumunu ve üzerinde yürüyen süreçleri/geçmişi izleme yetkisi.
+* **2. DEĞİŞTİR (`can_edit`):** Süreç notlarını, varlık bilgilerini veya detayları güncelleme yetkisi.
+* **3. EKLE (`can_add`):** Varlık üzerinde yeni süreç başlatma, sarf/ilaç ekleme veya alt varlık tanımlama yetkisi.
+* **4. SİL (`can_delete`):** Varlığı veya süreci arşivleme/silme yetkisi.
 
 ---
 
@@ -151,15 +159,19 @@ Büyük boyutlu resimler backend sunucusunu yormaz:
 
 ## 6. VERİTABANI VE VERİ YAPILARI ŞARTNAMESİ (DATA STRUCTURES & SQL)
 
-### 6.1. Ontolojik Model: Kutsal Üçlü
-* **1. KİŞİ (`persons`):** Tekil insan. Bağlama göre rol alır:
-  * **Düzenleyici:** `superuser`, `admin`, `operator`.
-  * **Sorgulayıcı:** Kendi varlıklarını izleyen müşteri (`client`).
-  * *Bağlamsal Yetki (Contextual RBAC):* Dr. Özge klinikte operatör, akşam oto serviste müşteridir.
-* **2. ASET (`assets`):** Özyinelemeli ağaç (`parent_id`).
+### 6.1. Ontolojik Model: Evrensel Aset Yaklaşımı ve 4 Temel Fiil
+Sistemdeki tüm nesneler, aktörler ve eylemler tek bir ortak ontolojide buluşur:
+* **1. KİŞİ (`persons`):** Evrensel kimlik (telefon / JWT). Sisteme giriş yapan conscious aktör.
+* **2. FİZİKSEL ASET (`assets`):** Özyinelemeli ağaç (`parent_id`).
   * `İşletme ➔ Bayi ➔ Kat ➔ Oda ➔ Kafes/Lift ➔ Cihaz ➔ Hasta/Araç`.
-  * *Varlık Dolaşımı (Asset Roaming):* Kedi Tarçın şubeler arasında özgürce gezer, kayıt kopyalanmaz.
-* **3. SÜREÇ (`processes`):** Başlayan, biten (`started_at != ended_at`) veya anlık (`0 sn`) tüm işler.
+  * *Varlık Dolaşımı (Asset Roaming):* Kedi Tarçın veya BMW araç şubeler arasında özgürce gezer; kayıt kopyalanmaz.
+* **3. SÜREÇ (`processes`):** Zaman boyutunda yaşayan varlıklar. Başlayan, biten (`started_at != ended_at`) veya anlık (`0 sn`) tüm operasyonlar.
+* **4. EVRENSEL YETKİ MOTORU (`asset_shares`):**
+  Aset sahibi (patron, araç sahibi veya evcil hayvan sahibi), varlığını dilediği kişiyle paylaşır. Yetki 4 temel fiilden ibarettir ve alt varlıklar ile süreçlere özyinelemeli olarak sirayet eder:
+  * **`can_view` (Görüntüle):** Varlığı, anlık konumunu ve üzerinde yürüyen tüm süreç/oturum kayıtlarını, fotoğrafları izleme izni.
+  * **`can_edit` (Değiştir):** Var olan süreç detaylarını, aşama durumlarını, notları veya varlık bilgilerini güncelleme izni.
+  * **`can_add` (Ekle):** Varlık üzerinde yeni bir süreç başlatma, araya acil müdahale ekleme, sarf/ilaç tüketimi girme veya alt varlık tanımlama izni.
+  * **`can_delete` (Sil):** Varlığı, süreci veya kaydı iptal etme/arşivleme/silme izni.
 
 ### 6.2. Üretim PostgreSQL DDL Şeması
 ```sql
