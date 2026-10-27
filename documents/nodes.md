@@ -6,38 +6,63 @@
 
 ---
 
-## 1. Düğüm Envanteri ve Özellikler
+## 1. Aktif V1.0 Üretim Mimarisi (2-Düğümlü Odaklı Model)
 
-| Düğüm | IP Adresi | vCPU | RAM | Disk / Mount | Ağ Portu | Birincil Rol / Öneri |
-| :--- | :--- | :---: | :---: | :--- | :---: | :--- |
-| **`node101`** | `185.205.194.232` | 2 | 8 GB | 80 GB Hızlı SSD (`/`) | 10 Gbps | **Compute 1:** Master DB / API Gateway / Reverse Proxy |
-| **`node102`** | `185.205.194.173` | 3 | 9 GB | 80 GB Hızlı SSD (`/`) | 10 Gbps | **Compute 2:** Uygulama Sunucusu (API / Web Admin / Worker) |
-| **`node103`** | `185.205.194.236` | 3 | 8 GB | 80 GB Hızlı SSD (`/`) | 10 Gbps | **Compute 3:** DB Replika / Redis Cache / WebSocket Sunucusu |
-| **`node104`** | `82.39.86.94` | 2 | 3 GB | 10 GB OS + **1 TB HDD** (`/mnt/data`) | 1 Gbps | **Storage 1:** S3 Medya Depolama (MinIO / Fotoğraflar) + Yedek |
-| **`node105`** | `96.62.250.101` | 2 | 3 GB | 10 GB OS + **1 TB HDD** (`/mnt/data`) | 1 Gbps | **Storage 2:** Medya Replikasyonu (MinIO Cluster) + Soğuk Yedek |
+Sistemin ilk fazında kaynak israfını önlemek, operasyonel karmaşıklığı sıfıra indirmek ve diğer sunucuları serbest bırakmak amacıyla **2 Düğümlü Mimari (Node102 + Node104)** seçilmiştir.
 
-### Toplam Altyapı Kapasitesi:
-* **İşlem Gücü:** 12 vCPU
-* **Toplam Bellek (RAM):** ~31 GB RAM
-* **Hızlı SSD Depolama (Compute için):** ~240 GB SSD (NVMe hızında)
-* **Büyük Veri Depolama (Medya/Yedek için):** **2 TB HDD** (`/mnt/data`)
+En yüksek RAM kapasitesine sahip olan **`node102`** tüm hesaplama ve veritabanı yükünü üstlenirken, 1 TB depolamalı **`node104`** medya ve nesne depolama sunucusu olarak görev yapar.
+
+```
+┌────────────────────────────────────────────────────────┐       ┌────────────────────────────────────────────────────────┐
+│               NODE102 (COMPUTE & DATABASE)             │       │               NODE104 (OBJECT STORAGE)                 │
+├────────────────────────────────────────────────────────┤       ├────────────────────────────────────────────────────────┤
+│  IP: 185.205.194.173  |  3 vCPU  |  9 GB RAM           │       │  IP: 82.39.86.94  |  2 vCPU  |  3 GB RAM               │
+│  Disk: 80 GB Hızlı SSD  |  Port: 10 Gbps               │       │  Disk: 10 GB OS + 1 TB HDD (/mnt/data)  |  Port: 1 Gbps│
+├────────────────────────────────────────────────────────┤       ├────────────────────────────────────────────────────────┤
+│  • Caddy / Reverse Proxy (Otomatik SSL / Port 80, 443) │       │  • MinIO / S3 Object Storage Service                   │
+│  • PostgreSQL 17 (İlişkisel Veritabanı)                 │       │    (Fotoğraflar, ameliyat kayıtları, hasta evrakları)  │
+│  • Redis (Canlı Takip, WebSocket Pub/Sub & Önbellek)   │◄─────►│  • Otomatik Veritabanı Yedekleme Arşivi                │
+│  • Yonned Core API (Fastify / TypeScript)              │ (Özel │    (Günlük/Haftalık şifreli DB dump arşivi)            │
+│  • Yonned Web Admin & Tracker (Next.js SSR/Static)     │  Ağ)  │                                                        │
+└────────────────────────────────────────────────────────┘       └────────────────────────────────────────────────────────┘
+```
+
+### Kaynak Tüketim Analizi (Neden Bu İkili Fazlasıyla Yeterli?):
+
+#### `node102` (Hesaplama & Veri Yükü):
+* **Kullanılabilir Bellek:** ~8.7 GB RAM
+* **Servis Dağılımı:**
+  * PostgreSQL 17: ~1.5 GB
+  * Redis: ~300 MB
+  * API Sunucusu: ~500 MB
+  * Web Admin & Tracker: ~500 MB
+  * Caddy (Proxy & SSL): ~50 MB
+* **Toplam Yük:** **~2.85 GB** (Mevcut RAM'in sadece %33'ü!)
+* **Kalan Güç:** ~5.8 GB boş RAM işletim sistemi disk önbelleği ve anlık yük dalgalanmaları için güvencedir.
+
+#### `node104` (Medya & Depolama Yükü):
+* **Kullanılabilir Bellek:** ~2.9 GB RAM
+* **Depolama:** `/mnt/data` üzerinde **1.000 GB (1 TB)** HDD.
+* **Servis:** MinIO (~400 MB RAM harcar).
+* **Kapasite:** Ortalama 1 MB büyüklüğünde **1.000.000 adet görseli** dışarıya bağımlı olmadan sıfır maliyetle depolar.
 
 ---
 
-## 2. Mimari Dağıtım ve Rol Planı
+## 2. Genel Düğüm Envanteri (Mevcut Altyapı)
 
-Bu 5 düğüm, projenin büyüklüğü için adeta biçilmiş kaftandır. Donanım profilleri ikiye ayrılmaktadır:
+| Düğüm | IP Adresi | vCPU | RAM | Disk / Mount | Ağ Portu | V1.0 Rolü |
+| :--- | :--- | :---: | :---: | :--- | :---: | :--- |
+| **`node102`** | `185.205.194.173` | **3** | **9 GB** | **80 GB SSD** (`/`) | **10 Gbps** | 🟢 **AKTİF COMPUTE:** DB, Redis, API, Web Admin, Proxy |
+| **`node104`** | `82.39.86.94` | **2** | **3 GB** | **1 TB HDD** (`/mnt/data`) | **1 Gbps** | 🟢 **AKTİF STORAGE:** MinIO S3 Medya Deposu + Yedek |
+| `node101` | `185.205.194.232` | 2 | 8 GB | 80 GB SSD (`/`) | 10 Gbps | ⚪ **SERBEST:** Diğer projeler / Gelecekte Compute 2 |
+| `node103` | `185.205.194.236` | 3 | 8 GB | 80 GB SSD (`/`) | 10 Gbps | ⚪ **SERBEST:** Diğer projeler / Gelecekte DB Replika |
+| `node105` | `96.62.250.101` | 2 | 3 GB | 1 TB HDD (`/mnt/data`) | 1 Gbps | ⚪ **SERBEST:** Diğer projeler / Gelecekte Storage 2 |
 
-### A. Hesaplama ve Veritabanı Kümesi (Compute Cluster: `node101`, `node102`, `node103`)
-* **Hızlı SSD ve Yüksek RAM (Toplam 25 GB RAM, 10 Gbps Ağ):**
-  * `node101` + `node102` + `node103` arasında Docker Swarm veya hafif k3s (Kubernetes) / doğrudan Docker Compose kümesi kurulabilir.
-  * **Veritabanı:** PostgreSQL (Hızlı SSD üzerinde, yüksek I/O performansı).
-  * **Önbellek & Canlı Takip:** Redis (Gerçek zamanlı müşteri takibi ve WebSocket bildirimleri).
-  * **Uygulamalar:** API backend ve Web Admin paneli.
+---
 
-### B. Medya, Fotoğraf ve Yedekleme Kümesi (Storage Cluster: `node104`, `node105`)
-* **2 TB Büyük Depolama Alanı (`/mnt/data`):**
-  * Operatörlerin çektiği ameliyat, tıraş, araç hasar ve bakım fotoğrafları, hasta kabul evrakları.
-  * S3 uyumlu bir nesne depolama motoru (örn. **MinIO** veya **SeaweedFS**) çalıştırılarak AWS S3 maliyeti ödemeden kendi bağımsız fotoğraf/medya sunucumuz kurulabilir.
-  * `node104` ve `node105` birbirine replike olarak çalışır (1 TB + 1 TB ayna/yedek).
-  * Veritabanının saatlik ve günlük şifreli yedekleri buraya arşivlenir.
+## 3. Gelecekte Yatay Büyüme (Scaling Plan)
+
+Yarın platformdaki işletme ve canlı işlem hacmi 10 katına çıktığında:
+1. `node101` veya `node103` havuza dahil edilerek PostgreSQL veritabanı ayrıştırılabilir.
+2. `node105` MinIO kümesine eklenerek medya depolaması 2 TB çift taraflı aynaya (mirrored replication) dönüştürülebilir.
+3. Uygulama kodunda tek bir satır bile değiştirmeden sadece Docker ortam değişkenleri güncellenerek bu geçiş yapılabilir.
