@@ -27,11 +27,11 @@ Sistemin fiziksel düğümleri, ağ katmanları, port güvenliği, şifreleme ve
 │ • OS: Debian GNU/Linux 13 (Trixie)                                     │
 │                                                                        │
 │ 🛡️ CROWDSEC SAVUNMA KATMANI:                                          │
-│ ├── CrowdSec Security Engine (Log analizörü: SSH + Caddy logları)      │
+│ ├── CrowdSec Security Engine (Log analizörü: SSH + Nginx logları)      │
 │ ├── nftables Firewall Bouncer: Kötü niyetli IP'leri çekirdekte banlar  │
 │ └── Community Threat Intelligence: Küresel kara listeleri önceden çeker│
 │                                                                        │
-│ 🌐 TERS VEKİL & SSL (Caddy Server):                                    │
+│ 🌐 TERS VEKİL & SSL (Nginx Server + Certbot):                          │
 │ ├── Port 80  ➔ 443 Yönlendirmesi                                       │
 │ ├── Port 443 ➔ SSL Sonlandırma & Dahili Yönlendirme                    │
 │ │   ├── /api/*   ➔ 127.0.0.1:8000 (FastAPI ASGI Uvicorn)               │
@@ -62,8 +62,8 @@ Sistemin fiziksel düğümleri, ağ katmanları, port güvenliği, şifreleme ve
 | Sunucu | Port | Protokol | Servis | Dış Dünyaya Açık mı? | Koruma Yöntemi |
 | :--- | :---: | :---: | :--- | :---: | :--- |
 | **`node102`** | 22 | TCP | SSH | Evet (Kısıtlı) | Sadece SSH Key (Parola Kapalı) + CrowdSec |
-| **`node102`** | 80 | TCP | HTTP | Evet | Caddy (Otomatik HTTPS 443 Yönlendirmesi) |
-| **`node102`** | 443 | TCP | HTTPS | Evet | Cloudflare WAF + Caddy TLS 1.3 |
+| **`node102`** | 80 | TCP | HTTP | Evet | Nginx (Otomatik HTTPS 443 Yönlendirmesi) |
+| **`node102`** | 443 | TCP | HTTPS | Evet | Cloudflare WAF + Nginx TLS 1.3 (Certbot SSL) |
 | **`node102`** | 8000 | TCP | FastAPI | **HAYIR** | Sadece `127.0.0.1` dinler |
 | **`node102`** | 5432 | TCP | PostgreSQL | **HAYIR** | Sadece `127.0.0.1` dinler |
 | **`node102`** | 6379 | TCP | Redis | **HAYIR** | Sadece `127.0.0.1` dinler |
@@ -108,10 +108,10 @@ Birimlerin nerede, hangi protokollerle ve nasıl bağlandığı.
 ┌─────────────────┬───────────────────┬─────────────────────┬──────────────────────────┐
 │ Kaynak Birim    │ Hedef Birim       │ Fiziksel / Sanal    │ Protokol / Erişim Kanalı │
 ├─────────────────┼───────────────────┼─────────────────────┼──────────────────────────┤
-│ Mobil (Flutter) │ Caddy Proxy       │ İnternet ➔ node102  │ HTTPS / TLS 1.3 (JSON)   │
-│ Web Admin (JS)  │ Caddy Proxy       │ İnternet ➔ node102  │ HTTPS / TLS 1.3 (JSON)   │
-│ Web Tracker (JS)│ Caddy Proxy       │ İnternet ➔ node102  │ WSS (WebSocket Secure)   │
-│ Caddy Proxy     │ FastAPI Backend   │ node102 Dahili Ağ   │ HTTP/1.1 (127.0.0.1:8000)│
+│ Mobil (Flutter) │ Nginx Proxy       │ İnternet ➔ node102  │ HTTPS / TLS 1.3 (JSON)   │
+│ Web Admin (JS)  │ Nginx Proxy       │ İnternet ➔ node102  │ HTTPS / TLS 1.3 (JSON)   │
+│ Web Tracker (JS)│ Nginx Proxy       │ İnternet ➔ node102  │ WSS (WebSocket Secure)   │
+│ Nginx Proxy     │ FastAPI Backend   │ node102 Dahili Ağ   │ HTTP/1.1 (127.0.0.1:8000)│
 │ FastAPI Backend │ PostgreSQL 17     │ node102 Dahili Ağ   │ TCP (asyncpg / 5432)     │
 │ FastAPI Backend │ Redis 7           │ node102 Dahili Ağ   │ TCP (redis-py / 6379)    │
 │ FastAPI Backend │ MinIO (node104)   │ node102 ➔ node104   │ S3 API / HTTP (Port 9000)│
@@ -159,7 +159,7 @@ Sistemin üzerine oturduğu ortamın donanım, işletim sistemi ve teknolojik ma
 | **Donanım: Compute** | DeluxHost VPS (AMD/Intel) | 3 vCPU / 9 GB RAM | `node102` (Amsterdam) |
 | **Donanım: Storage** | DeluxHost Storage VPS | 2 vCPU / 3 GB / 1 TB | `node104` (Amsterdam) |
 | **İşletim Sistemi** | Debian GNU/Linux | 13 (Trixie) - Kernel 6.12 | Bare-metal yerel kurulum (Docker'sız) |
-| **Web / Reverse Proxy**| Caddy Server | 2.8+ | Go tabanlı yerel HTTP/3 ters vekil |
+| **Web / Reverse Proxy**| Nginx + Certbot | 1.26+ (Debian Native) | Yerel Nginx ters vekil, CrowdSec resmi log desteği |
 | **Güvenlik Savunması**| CrowdSec + nftables bouncer | Güncel FOSS | Yerel log analizörü ve IP banlayıcı |
 | **Backend Runtime** | Python (CPython) | 3.12+ LTS | Asenkron ASGI motoru |
 | **Backend Framework** | FastAPI | 0.115+ | Yüksek hızlı asenkron web çatısı |
@@ -179,7 +179,7 @@ Sistemin üzerine oturduğu ortamın donanım, işletim sistemi ve teknolojik ma
 Her birimin birbiriyle ve dış dünya kütüphanelerine olan bağımlılıklarının kontrolü:
 
 ### 6.1. Dış Servis Bağımlılıkları (External Dependencies)
-* **Cloudflare (Ücretsiz Tier):** Yalnızca DNS ve SSL trafiği için kullanılır. Cloudflare çökse bile Caddy doğrudan Let's Encrypt ile tek başına çalışabilir.
+* **Cloudflare (Ücretsiz Tier):** Yalnızca DNS ve SSL trafiği için kullanılır. Cloudflare çökse bile Nginx doğrudan Certbot / Let's Encrypt ile tek başına çalışabilir.
 * **Let's Encrypt:** Otomatik SSL sertifikası üretimi için kullanılır.
 * **Üçüncü Taraf Bulut Bağımlılığı: SIFIR!** (AWS, Google Cloud, Firebase vb. ücretli bağımlılıklar yoktur; her şey `node102` ve `node104`tedir).
 

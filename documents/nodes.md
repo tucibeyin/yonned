@@ -54,9 +54,7 @@ En yüksek RAM kapasitesine sahip olan **`node102`** tüm hesaplama ve veritaban
 | :--- | :--- | :---: | :---: | :--- | :---: | :--- |
 | **`node102`** | `185.205.194.173` | **3** | **9 GB** | **80 GB SSD** (`/`) | **10 Gbps** | 🟢 **AKTİF COMPUTE:** DB, Redis, API, Web Admin, Proxy |
 | **`node104`** | `82.39.86.94` | **2** | **3 GB** | **1 TB HDD** (`/mnt/data`) | **1 Gbps** | 🟢 **AKTİF STORAGE:** MinIO S3 Medya Deposu + Yedek |
-| `node101` | `185.205.194.232` | 2 | 8 GB | 80 GB SSD (`/`) | 10 Gbps | ⚪ **SERBEST:** Diğer projeler / Gelecekte Compute 2 |
-| `node103` | `185.205.194.236` | 3 | 8 GB | 80 GB SSD (`/`) | 10 Gbps | ⚪ **SERBEST:** Diğer projeler / Gelecekte DB Replika |
-| `node105` | `96.62.250.101` | 2 | 3 GB | 1 TB HDD (`/mnt/data`) | 1 Gbps | ⚪ **SERBEST:** Diğer projeler / Gelecekte Storage 2 |
+
 
 ---
 
