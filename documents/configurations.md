@@ -6,19 +6,80 @@
 
 ---
 
-## 1. SUNUCU TOPOLOJİSİ VE ROLLER
+## 1. DIŞ GİRİŞ KAPISI: CLOUDFLARE EDGE VE GÜVENLİK AYARLARI
+
+Yonned dünyasının dış dünyaya açılan ilk ve tek giriş kapısı **Cloudflare Edge Katmanı**dır. İstemciler (mobil uygulama, admin paneli ve müşteri takipçisi) sunucu IP'lerine asla doğrudan ulaşamaz; tüm trafik Cloudflare üzerinden süzülerek gelir.
+
+### 1.1. DNS Yapılandırması ve Yönlendirme Matrisi (Proxy Status: ☁️ Proxied)
+Tüm kayıtlarda Cloudflare Proxy (Turuncu Bulut) **ZORUNLUDUR**:
+
+| Kayıt Tipi | İsim / Host | Hedef / Değer | Proxy Durumu | Açıklama |
+| :--- | :--- | :--- | :---: | :--- |
+| **`A`** | `yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Ana portal ve web arayüzü |
+| **`A`** | `api.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Üretim FastAPI REST Servisi |
+| **`A`** | `ws.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Canlı WebSocket Akışı |
+| **`A`** | `staging.yonned.com` | `185.205.194.236` (`node103`) | ☁️ Proxied | Bağımsız Staging Web Arayüzü |
+| **`A`** | `staging-api.yonned.com` | `185.205.194.236` (`node103`) | ☁️ Proxied | Staging Test API Servisi |
+| **`CNAME`** | `www.yonned.com` | `yonned.com` | ☁️ Proxied | www ana domaine yönlendirme |
+
+### 1.2. SSL / TLS Şifreleme Modu
+* **SSL/TLS Encryption Mode:** **`Full (Strict)`**
+  * Neden Full (Strict)? İstemci-Cloudflare arası değil, Cloudflare ile `node102`/`node103` arasındaki trafik de uçtan uca TLS ile şifrelenir (Man-in-the-Middle saldırısı imkansızlaşır).
+* **Cloudflare Origin CA Sertifikası (15 Yıllık Kusursuz Çözüm):**
+  * Let's Encrypt / Certbot 3 ayda bir yenilenme hatalarına ve cron arızalarına tabidir.
+  * Bunun yerine Cloudflare Dashboard üzerinden üretilen **15 yıllık Origin CA Sertifikası** Nginx sunucusuna kurulur (`/etc/ssl/certs/yonned.origin.pem` ve `/etc/ssl/private/yonned.origin.key`).
+* **Minimum TLS Sürümü:** `TLS 1.3` (Eski mobil cihaz fallback için: `TLS 1.2`).
+* **Always Use HTTPS:** `ON` (Tüm HTTP istekleri anında HTTPS'e çevrilir).
+* **Automatic HTTPS Rewrites:** `ON`.
+
+### 1.3. Ağ ve WebSocket Ayarları (Network Tab)
+* **WebSockets:** **`ON` (Aktif)**
+  * Canlı müşteri takip sayfası (`/ws/tracker/{token}`) ve saha personeli anlık bildirimleri için kesintisiz çift yönlü TCP tüneli sağlar.
+* **gRPC:** `ON` (İleride mobil RPC hızlandırması için).
+* **HTTP/3 (with QUIC):** `ON` (Mobil ağlarda hızlı bağlantı kurma ve paket kaybında sıfır bekleme).
+
+### 1.4. Güvenlik ve WAF Politikaları (Security Tab)
+* **Security Level:** `Medium`
+* **Bot Fight Mode:** `ON` (Otomatik kötü niyetli botları ve veri kazıyıcıları engeller).
+* **DDoS Koruması:** Cloudflare Anycast altyapısı L3/L4 ve L7 saldırılarını otomatik emer.
+* **Origin IP Maskeleme:** Gerçek sunucu IP'leri (`185.205.194.173` ve `185.205.194.236`) gizlenir. Dışarıdan gelen doğrudan IP taramaları Nginx seviyesinde reddedilir.
+
+### 1.5. Nginx Tarafında Cloudflare Gerçek IP Çözümleme (Real IP Restoration)
+Cloudflare vekil görevi gördüğü için Nginx loglarında ve CrowdSec'te müşterinin gerçek IP'sini (`CF-Connecting-IP`) görebilmek için `/etc/nginx/conf.d/cloudflare-real-ip.conf` yapılandırması kullanılır:
+```nginx
+# Cloudflare Resmi IPv4 Blokları
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+
+real_ip_header CF-Connecting-IP;
+```
+
+---
+
+## 2. SUNUCU TOPOLOJİSİ VE ROLLER
 
 | Sunucu Adı | IP Adresi | Donanım (vCPU / RAM / Disk / Port) | Rol ve Servisler | Durum |
 | :--- | :---: | :--- | :--- | :---: |
 | **`node102`** | `185.205.194.173` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Üretim (Production):** Compute, PostgreSQL 17, Redis 7, FastAPI, Nginx, CrowdSec | Aktif |
 | **`node103`** | `185.205.194.236` | 3 vCPU / 8 GB RAM / 80 GB SSD / 10 Gbps | **Staging (Laboratuvar):** Tam bağımsız hepsi-bir-arada test ortamı (DB, Redis, API, Test Koşumu) | Aktif |
 | **`node104`** | `82.39.86.94` | 2 vCPU / 3 GB RAM / 10 GB OS + 1 TB HDD / 1 Gbps | **Medya Deposu (Storage):** MinIO S3 Nesne Depolama (`/mnt/data`), Veritabanı Yedek Arşivi | Aktif |
-| **`node101`** | `185.205.194.88` | 1 vCPU / 1 GB RAM / 20 GB SSD | Yedek / Boşta (Standby) | Boşta |
-| **`node105`** | `185.205.194.144`| 3 vCPU / 8 GB RAM / 80 GB SSD | Yedek / Boşta (Standby) | Boşta |
 
 ---
 
-## 2. KULLANICI, DİZİN VE ERİŞİM YETKİLERİ
+## 3. KULLANICI, DİZİN VE ERİŞİM YETKİLERİ
 
 * **Yönetici Kullanıcı:** `tucibeyin`
   * Tüm düğümlerde şifresiz `sudo` yetkisi yapılandırılmış ve doğrulanmıştır (`sudo whoami -> root`).
@@ -36,7 +97,7 @@
 
 ---
 
-## 3. ZAMAN DİLİMİ VE SAAT SENKRONİZASYONU (TIMEZONE & NTP)
+## 4. ZAMAN DİLİMİ VE SAAT SENKRONİZASYONU (TIMEZONE & NTP)
 
 Veritabanı zaman damgalarında, loglarda ve WebSocket canlı takip akışlarında zaman kaymalarını sıfırlamak için tüm sunucular standart **UTC** zaman dilimine sabitlenmiştir:
 
@@ -51,7 +112,7 @@ sudo timedatectl set-ntp true
 
 ---
 
-## 4. ÇEKİRDEK VE AĞ OPTİMİZASYONU (SYSCTL)
+## 5. ÇEKİRDEK VE AĞ OPTİMİZASYONU (SYSCTL)
 
 10 Gbps yüksek bant genişliği, on binlerce eşzamanlı WebSocket bağlantısı ve Redis arkaplan kayıt (bgsave) operasyonları için `/etc/sysctl.d/99-yonned.conf` dosyası tüm aktif sunucularda yapılandırılmıştır:
 
@@ -85,7 +146,7 @@ net.ipv4.tcp_keepalive_probes = 5
 
 ---
 
-## 5. DOSYA VE SOKET SINIRLARI (ULIMITS)
+## 6. DOSYA VE SOKET SINIRLARI (ULIMITS)
 
 İşletim sisteminin varsayılan 1024 dosya sınırı yüksek eşzamanlı soket isteklerini engellememesi için `/etc/security/limits.d/99-yonned.conf` dosyasında 65.535'e yükseltilmiştir:
 
@@ -101,7 +162,7 @@ tucibeyin hard nofile 65535
 
 ---
 
-## 6. TEMEL SİSTEM PAKETLERİ (DEBIAN 13 / TRIXIE)
+## 7. TEMEL SİSTEM PAKETLERİ (DEBIAN 13 / TRIXIE)
 
 Sunucularda derleme, Python sanal ortamı ve veritabanı sürücüleri için gerekli asgari native paketler:
 
@@ -125,10 +186,11 @@ sudo DEBIAN_FRONTEND=noninteractive apt update && sudo apt install -y \
 
 ---
 
-## 7. SERVİS PORT VE GÜVENLİK DAĞILIMI
+## 8. SERVİS PORT VE GÜVENLİK DAĞILIMI
 
 * **Ters Vekil (Nginx):** Port 80 (HTTP $\rightarrow$ HTTPS) ve Port 443 (HTTPS TLS 1.3).
 * **Uvicorn / FastAPI:** Yalnızca `127.0.0.1:8000` (Dışarıya tamamen kapalı).
 * **PostgreSQL 17:** Yalnızca `127.0.0.1:5432` (Dışarıya tamamen kapalı).
 * **Redis 7:** Yalnızca `127.0.0.1:6379` (Dışarıya tamamen kapalı).
 * **MinIO S3 (`node104`):** Port 9000 (Sadece yetkili API IP'lerine açık).
+
