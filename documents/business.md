@@ -157,10 +157,10 @@ Bu akışkanlık sayesinde kullanıcı hiçbir zaman iki farklı uygulama indirm
 
 ## 7. VARLIK PAYLAŞIMI VE SADE YETKİ FELSEFESİ (ASSET SHARING)
 
-Yonned'de kafa karıştıran unvanlar ve karmaşık matrisler yoktur. 
+Yonned'de kafa karıştıran roller veya katı paketler yoktur. 
 Tek bir evrensel gerçek vardır:
 
-> **"Kişi kendi asetin patronudur. Varlığını istediği insanla paylaşabilir; paylaşılan kişinin yetkisi sadece 3 kademeli seviyeden biridir:"**
+> **"Kişi kendi asetin patronudur. Varlığını dilediği insanla paylaşabilir; paylaşılan kişinin haklarını tamamen bağımsız seçebileceği 4 temel izinle kendisi belirler:"**
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -168,18 +168,21 @@ Tek bir evrensel gerçek vardır:
 ├────────────────────────────────────────────────────────┤
 │  Kiminle Paylaşacaksın? : [ Kişi / Telefon Seç ]       │
 │                                                        │
-│  Yetki Seviyesi:                                       │
-│  ( ) 1. Görüntüleme     ➔ Sadece izler, takip eder     │
-│  ( ) 2. İşlem Yapabilme ➔ Görür + Süreç işletir, yazar │
-│  (•) 3. Hepsi           ➔ Görür + İşlem yapar + Yönetir│
+│  İzinler (Dilediğini aç, dilediğini kapat):            │
+│  [✅] 1. Görüntüle ➔ Canlı takibi, geçmişi, veriyi görsün
+│  [✅] 2. Değiştir  ➔ Var olan veriyi/notu güncelleyebilsin
+│  [✅] 3. Ekle      ➔ Yeni süreç, olay, kayıt ekleyebilsin
+│  [❌] 4. Sil       ➔ Kayıtları veya aseti silebilsin   │
 │                                                        │
 │  [ PAYLAŞ ]                                            │
 └────────────────────────────────────────────────────────┘
 ```
 
-### Seviyelerin Anlamı ve Gerçek Hayat:
-1. **Görüntüleme (`view`):** Sadece izler ve takip eder. Hiçbir şeyi değiştiremez. *(Örn: Müşteri yakını, stajyer, sessiz ortak, muhasebeci).*
-2. **İşlem Yapabilme (`operate`):** Görür + Süreç başlatır/bitirir, not yazar, fotoğraf çeker, ilaç okutur. Ama aseti başkasıyla paylaşamaz veya silemez. *(Örn: Klinikteki hekim, oto servis ustası, şoför).*
-3. **Hepsi (`all`):** Görür + İşlem yapar + Aseti yönetir, düzenler ve başkalarıyla da paylaşabilir. *(Örn: Eş, şirket ortağı, tam yetkili genel müdür).*
+### Hayatın İçinden Örnek Kombinasyonlar:
+* **Stajyer / Yeni Asistan:** `Görüntüle: Açık`, `Ekle: Açık`, `Değiştir: Kapalı`, `Sil: Kapalı` *(Yeni ameliyat notu ekleyebilir ama geçmişi manipüle edemez veya silemez - Hukuki Güvenlik).*
+* **Eş / Tam Ortak:** Dördü birden açık (`Görüntüle + Değiştir + Ekle + Sil`).
+* **Müşteri Yakını / Sessiz Ortak:** Yalnızca `Görüntüle: Açık`.
+* **Usta / Hekim:** `Görüntüle: Açık`, `Değiştir: Açık`, `Ekle: Açık`, `Sil: Kapalı`.
+
 
 
