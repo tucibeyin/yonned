@@ -28,6 +28,7 @@ Gereksiz katmanlar, ağır derleyiciler ve Docker sanallaştırma yükü tamamen
 | **Önbellek & Soket**| **Redis** | `node102` (Native Debian paketi) | Canlı müşteri takip akışı, oturum önbellekleme ve pub/sub. |
 | **Web Admin & Tracker**| **HTML5 + Vanilla CSS + JS** | `node102` (Jinja2 / Caddy) | Sıfır build süresi, ultra hafif, lüks ve modern tasarım sistemi. |
 | **Ters Vekil & SSL** | **Caddy Server** | `node102` (systemd) | Otomatik Let's Encrypt SSL, HTTP/3, Cloudflare Free arkasında tam uyum. |
+| **Ağ & Host Güvenliği**| **CrowdSec + Firewall Bouncer** | `node102` & `node104` (systemd) | Kaba kuvvet saldırılarını, port taramalarını engeller; kötü IP'leri nftables ile banlar. |
 | **Medya Depolama** | **MinIO (Tek Binary)**| `node104` (systemd / `/mnt/data`) | 1 TB disk üzerinde S3 uyumlu yerel fotoğraf/evrak deposu. |
 
 ---
