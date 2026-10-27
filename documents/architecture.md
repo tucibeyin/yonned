@@ -1,16 +1,33 @@
-# Yonned Kurumsal Sistem, Ağ ve Yazılım Mimarisi Şartnamesi (V1.0)
+# Yonned Teknik Mimari ve Sistem Şartnamesi (V1.0 - Master Technical Spec)
+**Belge Türü:** Tek Gerçek Kaynağı (Single Source of Truth - Technical SSOT)  
 **Tarih:** 28 Ekim 2026  
-**Durum:** Kesinleşmiş Ana Mimari Belgesi (Master Architecture Document)  
-**Standardizasyon:** *Enterprise Architecture Framework (EAF / C4 Model)*
+**Durum:** Kesinleşmiş ve Onaylanmış Ana Belge  
+**Felsefe:** *Kutsal Üçlü (Kişi - Aset - Süreç), Sıfır-Docker (Bare-Metal Linux), Sıfır-Blokaj (Non-Blocking), %100 Ücretsiz FOSS*
 
 ---
 
-## 1. Topoloji Mimarisi (Topology Architecture)
+## 1. MİMARİ VİZYON VE NEDEN-SONUÇ İLİŞKİLERİ
 
-Sistemin fiziksel düğümleri, ağ katmanları, port güvenliği, şifreleme ve DDoS/IPS savunma hattı.
+### 1.1. Geleneksel Dikey Yazılımların Çıkmazı
+Geleneksel yazılımlar sektöre göre katılaşır: Veteriner için ayrı, oto servis için ayrı, tamirhane için ayrı tablolar açılır. Bu durum 3 ölümcül sonuç doğurur:
+* **Veri Parçalanması:** Bir kişi (Ayşe Hanım) hem kediye hem arabaya sahiptir; ama iki ayrı sistemde iki yabancı gibi yaşar. Bir patron (Mehmet Bey) hem klinik hem oto servis işletir; iki ayrı hantal ekranda kaybolur.
+* **Sahada Blokaj:** Tıraş sırasında kaza olup dikiş gerektiğinde veya barkodu sisteme girilmemiş yeni bir ilaç geldiğinde; geleneksel yazılım *"Önce süreci iptal et"* veya *"Bu barkod kayıtlı değil"* diyerek personeli kilitler. Personel tableti fırlatır, kağıt-kaleme döner.
+* **Mekansal Katılık:** Bir şube 2 katlıdır, diğer şube tek katlıdır; birinde 5 kafes vardır, diğerinde açık peron. Katı tablolar bu esnekliği taşıyamaz.
+
+### 1.2. Çözüm: Kutsal Üçlü (The Ontological Trinity)
+Fiziksel dünyadaki tüm işletme operasyonları sadece **üç evrensel soruya** indirgenmiştir:
+1. **KİM? $\rightarrow$ KİŞİ (Person):** Hizmet veren (düzenleyici) veya hizmet alan (sorgulayıcı) insanlar.
+2. **NE & NEREDE? $\rightarrow$ ASET (Asset):** İşletmenin kendisi, bayisi, katı, odası, masası, cihazı, ilacı ve müşterinin getirdiği canlı/eşya (özyinelemeli tek ağaç).
+3. **NE OLUYOR? $\rightarrow$ SÜREÇ (Process):** Kişilerin asetler üzerinde, belirli mekanlarda zaman içinde icra ettiği tüm olaylar ve yaşam döngüleri.
+
+---
+
+## 2. TOPOLOJİ VE DONANIM MİMARİSİ (TOPOLOGY & HARDWARE)
+
+Sistem kaynak israfını önlemek, operasyonel karmaşıklığı sıfıra indirmek ve bare-metal performans almak amacıyla **2 Düğümlü Mimari (Node102 + Node104)** üzerinde çalışır. Diğer 3 sunucu serbesttir.
 
 ```
-[ DIŞ DÜNYA: İstemciler ] (Mobil, Web Admin, Müşteri Tracker)
+[ DIŞ DÜNYA: İstemciler ] (Flutter Mobil, Web Admin, Müşteri Tracker)
              │
              ▼ HTTPS (Port 443 / TLS 1.3)
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -24,7 +41,7 @@ Sistemin fiziksel düğümleri, ağ katmanları, port güvenliği, şifreleme ve
 ┌────────────────────────────────────────────────────────────────────────┐
 │ KATMAN 2: NODE102 (Compute & Core Application Node)                    │
 │ • IP: 185.205.194.173 | 3 vCPU | 9 GB RAM | 80 GB SSD | 10 Gbps Port   │
-│ • OS: Debian GNU/Linux 13 (Trixie)                                     │
+│ • OS: Debian GNU/Linux 13 (Trixie) - Kernel 6.12                       │
 │                                                                        │
 │ 🛡️ CROWDSEC SAVUNMA KATMANI:                                          │
 │ ├── CrowdSec Security Engine (Log analizörü: SSH + Nginx logları)      │
@@ -36,12 +53,12 @@ Sistemin fiziksel düğümleri, ağ katmanları, port güvenliği, şifreleme ve
 │ ├── Port 443 ➔ SSL Sonlandırma & Dahili Yönlendirme                    │
 │ │   ├── /api/*   ➔ 127.0.0.1:8000 (FastAPI ASGI Uvicorn)               │
 │ │   ├── /ws      ➔ 127.0.0.1:8000 (WebSocket Canlı Takip Akışı)        │
-│ │   └── /admin, /t/* ➔ Statik / Jinja2 Web Arayüzleri                  │
+│ │   └── /admin, /t/* ➔ Statik Dosyalar / Jinja2 Web Arayüzleri         │
 │                                                                        │
 │ ⚙️ DAHİLİ SERVİSLER (Yalnızca 127.0.0.1 - Dışarıya Kapalı):           │
-│ ├── PostgreSQL 17 (Port 5432)                                          │
-│ ├── Redis 7 (Port 6379)                                                │
-│ └── Uvicorn / FastAPI Workers (Port 8000)                              │
+│ ├── PostgreSQL 17 (Port 5432 - İlişkisel Veritabanı)                   │
+│ ├── Redis 7 (Port 6379 - Soket & Önbellek)                             │
+│ └── Uvicorn / FastAPI Workers (Port 8000 - Backend Motoru)             │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
                                    ▼ Özel / İmzalı S3 İletişimi (Port 9000)
@@ -58,282 +75,288 @@ Sistemin fiziksel düğümleri, ağ katmanları, port güvenliği, şifreleme ve
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Port Güvenlik Matrisi:
-| Sunucu | Port | Protokol | Servis | Dış Dünyaya Açık mı? | Koruma Yöntemi |
+### Donanım Kaynak Dağılımı ve Port Matrisi:
+* **`node102` (Compute & DB):** 9 GB RAM'in yalnızca ~2.85 GB'ı servisler (Postgres, Redis, API, Nginx) tarafından kullanılır; geriye kalan ~6 GB bellek disk I/O önbelleğine ve anlık yüklere kalır.
+* **`node104` (Storage):** 3 GB RAM'in ~500 MB'ı MinIO tarafından kullanılır; 1 TB diskte **1.000.000 adet fotoğraf** sıfır bulut maliyetiyle depolanır.
+
+| Sunucu | Port | Protokol | Servis | Dış Dünyaya Açık mı? | Güvenlik Önlemi |
 | :--- | :---: | :---: | :--- | :---: | :--- |
-| **`node102`** | 22 | TCP | SSH | Evet (Kısıtlı) | Sadece SSH Key (Parola Kapalı) + CrowdSec |
+| **`node102`** | 22 | TCP | SSH | Evet (Kısıtlı) | Yalnızca SSH Key (Parola Kapalı) + CrowdSec |
 | **`node102`** | 80 | TCP | HTTP | Evet | Nginx (Otomatik HTTPS 443 Yönlendirmesi) |
 | **`node102`** | 443 | TCP | HTTPS | Evet | Cloudflare WAF + Nginx TLS 1.3 (Certbot SSL) |
 | **`node102`** | 8000 | TCP | FastAPI | **HAYIR** | Sadece `127.0.0.1` dinler |
 | **`node102`** | 5432 | TCP | PostgreSQL | **HAYIR** | Sadece `127.0.0.1` dinler |
 | **`node102`** | 6379 | TCP | Redis | **HAYIR** | Sadece `127.0.0.1` dinler |
 | **`node104`** | 22 | TCP | SSH | Evet (Kısıtlı) | Sadece SSH Key + CrowdSec |
-| **`node104`** | 9000 | TCP | MinIO S3 | Kısıtlı | Yalnızca `node102` IP'sinden erişim (nftables) |
+| **`node104`** | 9000 | TCP | MinIO S3 | Kısıtlı | Yalnızca `node102` IP'sine izin verilir (nftables) |
 
 ---
 
-## 2. Yapılandırma Mimarisi (Configuration Architecture)
+## 3. YAPILANDIRMA MİMARİSİ (CONFIGURATION ARCHITECTURE)
 
-Sistemin ortam değişkenleri, sırlar (secrets), bağımlılık yönetimi ve 12-Faktör uyumu.
+* **12-Factor App:** Konfigürasyonlar kod içine gömülmez; işletim sistemi ortam değişkenleri (`.env`) üzerinden beslenir.
+* **Strict Typing:** Python tarafında **`pydantic-settings`** kullanılır. Eksik veya geçersiz tipte bir ayar varsa sistem ayağa kalkmaz (Fail-Fast).
+* **Güvenlik (`chmod 600`):** `.env.production` dosyası yalnızca `root`/`yonned` kullanıcısına okunur, `.gitignore` ile korunur.
 
-### 2.1. Prensip: 12-Factor App & Strict Typing
-* Konfigürasyonlar kodun içinde asla yer almaz; tamamen işletim sistemi ortam değişkenleri (`environment variables`) ve `.env` üzerinden beslenir.
-* Python tarafında **`pydantic-settings`** kullanılır. Uygulama ayağa kalkarken eksik veya tipi yanlış bir ayar varsa sistem anında hata vererek başlamayı reddeder (Fail-Fast).
-
-### 2.2. Konfigürasyon Katmanları
-```
-/var/www/yonned/
-├── .env.production          # Yalnızca root/yonned kullanıcısına okunur (chmod 600)
-│   ├── DATABASE_URL         # postgresql+asyncpg://yonned:pass@127.0.0.1:5432/yonned_db
-│   ├── REDIS_URL            # redis://127.0.0.1:6379/0
-│   ├── SECRET_KEY           # JWT ve Token imzalama için 64-karakter hex
-│   ├── S3_ENDPOINT_URL      # http://82.39.86.94:9000 (node104)
-│   ├── S3_ACCESS_KEY        # MinIO erişim anahtarı
-│   ├── S3_SECRET_KEY        # MinIO gizli anahtarı
-│   └── S3_BUCKET_NAME       # yonned-media
-```
-
-### 2.3. Sırların Güvenliği (Secret Management)
-* `.env` dosyaları `.gitignore` ile korunur, asla GitHub'a gitmez.
-* Sunucuya ortam değişkenleri ilk kurulumda güvenli SCP ile aktarılır.
-* Servisler `systemd` üzerinden `EnvironmentFile=/var/www/yonned/.env.production` direktifiyle izole çalışır.
-
----
-
-## 3. İletişim Mimarisi (Communication Architecture)
-
-Birimlerin nerede, hangi protokollerle ve nasıl bağlandığı.
-
-```
-┌─────────────────┬───────────────────┬─────────────────────┬──────────────────────────┐
-│ Kaynak Birim    │ Hedef Birim       │ Fiziksel / Sanal    │ Protokol / Erişim Kanalı │
-├─────────────────┼───────────────────┼─────────────────────┼──────────────────────────┤
-│ Mobil (Flutter) │ Nginx Proxy       │ İnternet ➔ node102  │ HTTPS / TLS 1.3 (JSON)   │
-│ Web Admin (JS)  │ Nginx Proxy       │ İnternet ➔ node102  │ HTTPS / TLS 1.3 (JSON)   │
-│ Web Tracker (JS)│ Nginx Proxy       │ İnternet ➔ node102  │ WSS (WebSocket Secure)   │
-│ Nginx Proxy     │ FastAPI Backend   │ node102 Dahili Ağ   │ HTTP/1.1 (127.0.0.1:8000)│
-│ FastAPI Backend │ PostgreSQL 17     │ node102 Dahili Ağ   │ TCP (asyncpg / 5432)     │
-│ FastAPI Backend │ Redis 7           │ node102 Dahili Ağ   │ TCP (redis-py / 6379)    │
-│ FastAPI Backend │ MinIO (node104)   │ node102 ➔ node104   │ S3 API / HTTP (Port 9000)│
-│ Admin / DevOps  │ node102 / node104 │ İnternet (SSH)      │ SSH (Ed25519 Key / 22)   │
-└─────────────────┴───────────────────┴─────────────────────┴──────────────────────────┘
+```ini
+# /var/www/yonned/.env.production
+DATABASE_URL=postgresql+asyncpg://yonned:GIZLI_PAROLA@127.0.0.1:5432/yonned_db
+REDIS_URL=redis://127.0.0.1:6379/0
+SECRET_KEY=64_KARAKTER_HEX_GIZLI_ANAHTAR
+S3_ENDPOINT_URL=http://82.39.86.94:9000
+S3_ACCESS_KEY=MINIO_ACCESS_KEY
+S3_SECRET_KEY=MINIO_SECRET_KEY
+S3_BUCKET_NAME=yonned-media
 ```
 
 ---
 
-## 4. Entegrasyon Mimarisi (Integration Architecture)
-
-Birimlerin birbiriyle konuşma ve veri alışveriş mekanizmaları.
+## 4. İLETİŞİM VE ENTEGRASYON MİMARİSİ (COMMUNICATION & INTEGRATION)
 
 ### 4.1. Senkron API Entegrasyonu (REST & OpenAPI)
 * **Format:** %100 JSON (UTF-8).
-* **Standart:** RESTful prensipleri ve OpenAPI v3 (Swagger).
-* **Sözleşme:** Her istek Pydantic şemaları ile çift yönlü doğrulanır (hem gelen veri hem dönen cevap tiplidir).
-* **Hata Yönetimi:** Standart RFC 7807 problem detay formatı:
-  `{"status": 404, "code": "ASSET_NOT_FOUND", "message": "Kafes #1 bulunamadı"}`
+* **Standart:** RESTful ve OpenAPI v3 (Swagger). Kod yazıldığı an `https://api.yonned.com/docs` adresinde interaktif API dökümanı hazırdır.
+* **Hata Standardı (RFC 7807):** `{"status": 404, "code": "ASSET_NOT_FOUND", "message": "Kafes #1 bulunamadı"}`.
 
 ### 4.2. Asenkron & Gerçek Zamanlı Entegrasyon (WebSocket + Redis Pub/Sub)
-* Müşteri takip sayfası açıldığında WebSocket bağlantısı kurar (`/ws/tracker/{token}`).
-* Hekim veya operatör mobilde işlem kaydettiğinde (`POST /api/processes/event`):
-  1. Veri PostgreSQL'e yazılır.
-  2. FastAPI, Redis'e bir yayın fırlatır: `redis.publish(f"session:{session_id}", event_json)`.
-  3. O oturumu dinleyen WebSocket istemcilerine mesaj anında iletilir.
-  4. Sayfa yenilenmeden müşterinin ekranında anlık güncelleme belirir.
+Müşterinin takip ekranı açıkken (`/ws/tracker/{token}`):
+1. Hekim veya operatör mobilde işlem kaydettiğinde (`POST /api/processes/event`),
+2. Veri PostgreSQL'e işlenir,
+3. FastAPI, Redis'e mesaj fırlatır (`redis.publish`),
+4. Açık WebSocket üzerinden JSON basılır,
+5. Müşterinin ekranında sayfa yenilenmeden canlı yeşil tik yanar ve fotoğraf belirir!
 
-### 4.3. Dosya ve Medya Alışverişi (S3 Presigned URLs)
-* Mobil çalışan fotoğraf çektiğinde; büyük boyutlu resim dosyası **FastAPI sunucusunu yormaz**.
-* **Akış:**
-  1. Mobil uygulama API'den yükleme izni ister: `POST /api/media/upload-url`
-  2. FastAPI, `node104` MinIO sunucusu için 15 dakika geçerli **İmzalı Yükleme URL'i (Presigned PUT URL)** üretir.
-  3. Mobil uygulama fotoğrafı doğrudan `node104`e yükler (`PUT http://82.39.86.94:9000/...`).
-  4. Yükleme tamamlanınca fotoğrafın S3 anahtarı sürece iliştirilir.
+### 4.3. Dosya Alışverişi (MinIO S3 Presigned URLs)
+Büyük boyutlu resimler backend sunucusunu yormaz:
+1. Mobil uygulama izin ister: `POST /api/media/upload-url`
+2. Backend 15 dakika geçerli **İmzalı Yükleme URL'i (Presigned PUT)** döner.
+3. Mobil uygulama fotoğrafı doğrudan `node104` MinIO sunucusuna yükler.
 
 ---
 
-## 5. Teknoloji Mimarisi (Technology Architecture)
+## 5. TEKNOLOJİ VE BAĞIMLILIK MİMARİSİ (TECH STACK & DEPENDENCIES)
 
-Sistemin üzerine oturduğu ortamın donanım, işletim sistemi ve teknolojik marka/model detayları:
-
-| Katman | Teknoloji / Model | Sürüm | Konum & Açıklama |
-| :--- | :--- | :--- | :--- |
-| **Donanım: Compute** | DeluxHost VPS (AMD/Intel) | 3 vCPU / 9 GB RAM | `node102` (Amsterdam) |
-| **Donanım: Storage** | DeluxHost Storage VPS | 2 vCPU / 3 GB / 1 TB | `node104` (Amsterdam) |
-| **İşletim Sistemi** | Debian GNU/Linux | 13 (Trixie) - Kernel 6.12 | Bare-metal yerel kurulum (Docker'sız) |
-| **Web / Reverse Proxy**| Nginx + Certbot | 1.26+ (Debian Native) | Yerel Nginx ters vekil, CrowdSec resmi log desteği |
-| **Güvenlik Savunması**| CrowdSec + nftables bouncer | Güncel FOSS | Yerel log analizörü ve IP banlayıcı |
-| **Backend Runtime** | Python (CPython) | 3.12+ LTS | Asenkron ASGI motoru |
-| **Backend Framework** | FastAPI | 0.115+ | Yüksek hızlı asenkron web çatısı |
-| **ASGI Sunucusu** | Uvicorn (standard uvloop) | 0.32+ | C tabanlı ultra hızlı event-loop |
-| **Veritabanı Motoru** | PostgreSQL | 17.x | ACID, JSONB, Recursive CTE destekli |
-| **Veritabanı Sürücüsü**| asyncpg + SQLAlchemy Async | 2.0+ | En hızlı asenkron Python DB sürücüsü |
-| **Önbellek & Soket** | Redis | 7.x | Bellek içi veri yapısı deposu |
-| **Medya Depolama** | MinIO Server | Single Binary | 1 TB HDD üzerinde S3 uyumlu nesne deposu |
-| **Mobil Çatı** | Flutter (Dart) | 3.x+ | Cross-platform native derleme motoru |
-| **Mobil Kamera/Tarayıcı**| mobile_scanner | Güncel | Donanım hızlandırmalı kamera barkod vizörü |
-| **Web UI** | HTML5 + Vanilla CSS + Vanilla JS| Saf Web | Modern cam efekti (glassmorphism), sıfır build |
+| Katman | Teknoloji / Model | Sürüm | Konum / Çalışma Şekli | Neden Seçildi? |
+| :--- | :--- | :--- | :--- | :--- |
+| **Mobil Uygulama** | **Flutter (Dart)** | 3.x+ | iOS & Android | Tek kodla 60/120 FPS native performans, `mobile_scanner` ile hızlı vizör. |
+| **Backend API** | **Python (FastAPI)** | 3.12+ / 0.115+ | `node102` (systemd / Uvicorn) | Bakımı en kolay dil, asenkron hız, otomatik `/docs` Swagger dokümantasyonu. |
+| **Veritabanı** | **PostgreSQL** | 17.x | `node102` (Debian Native) | JSONB, recursive hiyerarşi ve ACID güvencesi. |
+| **Önbellek & Soket**| **Redis** | 7.x | `node102` (Debian Native) | Canlı müşteri takip akışı, pub/sub ve oturum önbelleği. |
+| **Ters Vekil & SSL** | **Nginx + Certbot** | 1.26+ | `node102` (Debian Native) | 20 yıllık stabilite, CrowdSec ile resmi log uyumu, otomatik Let's Encrypt SSL. |
+| **Ağ Güvenliği** | **CrowdSec + nftables**| FOSS | `node102` & `node104` | Kaba kuvvet saldırılarını engeller, kötü IP'leri çekirdekte banlar. |
+| **Web Arayüzleri** | **HTML5 + Vanilla CSS + JS**| Saf Web | `node102` (Jinja2 / Nginx) | `node_modules` karmaşası yok, mikrosaniyede açılan sayfalar, cam efekti. |
+| **Medya Deposu** | **MinIO Server** | Tek Binary | `node104` (`/mnt/data` 1 TB HDD)| AWS S3 maliyetini sıfırlayan yerel nesne depolama motoru. |
 
 ---
 
-## 6. Bağımlılık Mimarisi (Dependency Architecture)
+## 6. VERİTABANI VE VERİ YAPILARI ŞARTNAMESİ (DATA STRUCTURES & SQL)
 
-Her birimin birbiriyle ve dış dünya kütüphanelerine olan bağımlılıklarının kontrolü:
+### 6.1. Ontolojik Model: Kutsal Üçlü
+* **1. KİŞİ (`persons`):** Tekil insan. Bağlama göre rol alır:
+  * **Düzenleyici:** `superuser`, `admin`, `operator`.
+  * **Sorgulayıcı:** Kendi varlıklarını izleyen müşteri (`client`).
+  * *Bağlamsal Yetki (Contextual RBAC):* Dr. Özge klinikte operatör, akşam oto serviste müşteridir.
+* **2. ASET (`assets`):** Özyinelemeli ağaç (`parent_id`).
+  * `İşletme ➔ Bayi ➔ Kat ➔ Oda ➔ Kafes/Lift ➔ Cihaz ➔ Hasta/Araç`.
+  * *Varlık Dolaşımı (Asset Roaming):* Kedi Tarçın şubeler arasında özgürce gezer, kayıt kopyalanmaz.
+* **3. SÜREÇ (`processes`):** Başlayan, biten (`started_at != ended_at`) veya anlık (`0 sn`) tüm işler.
 
-### 6.1. Dış Servis Bağımlılıkları (External Dependencies)
-* **Cloudflare (Ücretsiz Tier):** Yalnızca DNS ve SSL trafiği için kullanılır. Cloudflare çökse bile Nginx doğrudan Certbot / Let's Encrypt ile tek başına çalışabilir.
-* **Let's Encrypt:** Otomatik SSL sertifikası üretimi için kullanılır.
-* **Üçüncü Taraf Bulut Bağımlılığı: SIFIR!** (AWS, Google Cloud, Firebase vb. ücretli bağımlılıklar yoktur; her şey `node102` ve `node104`tedir).
+### 6.2. Üretim PostgreSQL DDL Şeması
+```sql
+-- 1. KİŞİLER (Universal Identity)
+CREATE TABLE persons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(150) NOT NULL,
+    phone VARCHAR(50) NOT NULL UNIQUE,       -- Sisteme ana giriş anahtarı
+    email VARCHAR(150) UNIQUE,
+    avatar_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-### 6.2. Python Kütüphane Bağımlılıkları (`requirements.txt`)
-Yalnızca denenmiş, hafif ve kararlı paketler:
-* `fastapi`, `uvicorn[standard]` $\rightarrow$ Web motoru
-* `sqlalchemy[asyncio]`, `asyncpg`, `alembic` $\rightarrow$ DB & migration
-* `pydantic`, `pydantic-settings` $\rightarrow$ Veri doğrulama
-* `redis` $\rightarrow$ Asenkron Redis istemcisi
-* `jinja2`, `python-multipart` $\rightarrow$ HTML şablonları ve dosya formları
-* `boto3` veya `aioboto3` $\rightarrow$ MinIO S3 dosya iletişimi
-* `pyjwt`, `passlib[bcrypt]` $\rightarrow$ Kimlik doğrulama & şifreleme
+-- 2. KİŞİLERİN BAĞLAMSAL ROLLERİ (Contextual Roles)
+CREATE TABLE person_roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    person_id UUID NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    tenant_asset_id UUID NOT NULL,            -- Hangi işletme aseti altında yetkili?
+    branch_asset_id UUID,                     -- Belirli bir bayi ile sınırlı ise
+    system_role VARCHAR(50) NOT NULL,        -- 'superuser', 'admin', 'operator', 'viewer'
+    business_title VARCHAR(100),             -- "Veteriner Hekim", "Usta", "Karşılama"
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-### 6.3. Flutter Paket Bağımlılıkları (`pubspec.yaml`)
-* `mobile_scanner` $\rightarrow$ Kamera ve barkod okuma
-* `http` veya `dio` $\rightarrow$ API REST istemcisi
-* `web_socket_channel` $\rightarrow$ Canlı soket istemcisi
-* `flutter_riverpod` veya `provider` $\rightarrow$ Reaktif durum yönetimi (State management)
-* `shared_preferences` $\rightarrow$ Yerel oturum token saklama
+-- 3. EVRENSEL ÖZYİNELEMELİ VARLIK AĞACI (Recursive Asset Tree)
+CREATE TABLE assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    parent_id UUID REFERENCES assets(id) ON DELETE CASCADE, -- Hiyerarşi (Kat ➔ Oda ➔ Kafes)
+    owner_person_id UUID REFERENCES persons(id),            -- Müşteri varlığı ise kişi ID'si
+    owner_type VARCHAR(20) NOT NULL DEFAULT 'business',    -- 'business' | 'customer'
+    asset_type VARCHAR(50) NOT NULL, 
+    -- 'organization', 'branch', 'floor', 'room', 'station', 'cage', 'bay', 'device', 'consumable', 'pet', 'vehicle'
+    name VARCHAR(150) NOT NULL,              -- "Kadıköy Şubesi", "2. Kat", "Kafes #1", "Tarçın", "BMW 3.20"
+    identifier VARCHAR(100),                 -- Çip No, Plaka, Seri No, Barkod
+    qr_code VARCHAR(100) UNIQUE,             -- Fiziksel QR kod etiketi (loc_..., ast_...)
+    current_location_asset_id UUID REFERENCES assets(id), -- Tarçın şu an hangi Kafes asetinde?
+    capacity INTEGER DEFAULT 1,
+    metadata JSONB DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX idx_assets_parent ON assets(parent_id);
+CREATE INDEX idx_assets_owner ON assets(owner_person_id);
+CREATE INDEX idx_assets_qr ON assets(qr_code);
+
+-- 4. SÜREÇ ŞABLON KÜTÜPHANESİ (Process Blueprints)
+CREATE TABLE process_definitions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    name VARCHAR(150) NOT NULL,              -- "Genel Bakım", "Ameliyat", "Aşı", "Yağ Değişimi"
+    is_instant BOOLEAN DEFAULT FALSE,       -- TRUE: Anlık Olay (0 sn), FALSE: Süreli Süreç
+    default_location_type VARCHAR(50),
+    is_customer_visible BOOLEAN DEFAULT TRUE,
+    customer_label VARCHAR(255),
+    icon VARCHAR(50),
+    metadata_schema JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE process_definition_relations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    parent_definition_id UUID NOT NULL REFERENCES process_definitions(id) ON DELETE CASCADE,
+    child_definition_id UUID NOT NULL REFERENCES process_definitions(id) ON DELETE CASCADE,
+    sort_order INTEGER DEFAULT 0,
+    is_optional BOOLEAN DEFAULT TRUE
+);
+
+-- 5. CANLI OTURUM VE SÜREÇ AĞACI (Live Execution)
+CREATE TABLE asset_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    branch_asset_id UUID NOT NULL REFERENCES assets(id),
+    subject_asset_id UUID NOT NULL REFERENCES assets(id),
+    status VARCHAR(50) NOT NULL DEFAULT 'checked_in', 
+    -- 'checked_in', 'in_service', 'ready_for_pickup', 'completed', 'cancelled'
+    current_location_asset_id UUID REFERENCES assets(id),
+    tracking_token VARCHAR(100) NOT NULL UNIQUE,          -- Müşteri canlı takip linki
+    check_in_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    check_out_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX idx_sessions_active ON asset_sessions(subject_asset_id, status);
+
+CREATE TABLE live_processes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES asset_sessions(id) ON DELETE CASCADE,
+    definition_id UUID REFERENCES process_definitions(id),
+    parent_id UUID REFERENCES live_processes(id) ON DELETE CASCADE,
+    previous_id UUID REFERENCES live_processes(id),
+    name VARCHAR(150) NOT NULL,
+    is_instant BOOLEAN DEFAULT FALSE,
+    status VARCHAR(50) NOT NULL DEFAULT 'queued', -- 'queued', 'running', 'paused', 'completed', 'cancelled'
+    location_asset_id UUID REFERENCES assets(id),
+    assigned_person_id UUID REFERENCES persons(id),
+    completed_by_id UUID REFERENCES persons(id),
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ended_at TIMESTAMP WITH TIME ZONE,
+    duration_seconds INTEGER,
+    is_customer_visible BOOLEAN DEFAULT TRUE,
+    customer_notes VARCHAR(255),
+    notes TEXT,
+    photos JSONB DEFAULT '[]',
+    metadata JSONB DEFAULT '{}'
+);
+CREATE INDEX idx_live_proc_session ON live_processes(session_id);
+
+CREATE TABLE live_process_operators (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    process_id UUID NOT NULL REFERENCES live_processes(id) ON DELETE CASCADE,
+    person_id UUID NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    role VARCHAR(50) DEFAULT 'operator',
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 6. SARF TÜKETİMİ (Consumables & Medicine)
+CREATE TABLE process_consumables (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    process_id UUID NOT NULL REFERENCES live_processes(id) ON DELETE CASCADE,
+    consumable_asset_id UUID REFERENCES assets(id),
+    custom_name VARCHAR(150),                       -- Katalogda yoksa anında girilen ad (JIT)
+    barcode_scanned VARCHAR(100),
+    quantity NUMERIC(10, 2) DEFAULT 1,
+    unit VARCHAR(20) DEFAULT 'adet',
+    administered_by_id UUID REFERENCES persons(id),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
 ---
 
-## 7. Yazılım Mimarisi (Software Architecture)
+## 7. YAZILIM MİMARİSİ (SOFTWARE ARCHITECTURE)
 
-### 7.1. Backend Architecture (Python FastAPI)
-
-FastAPI mimarisi **Katmanlı Mimari (Layered Architecture)** prensibine göre inşa edilir:
-
+### 7.1. Backend Mimarisi (FastAPI)
+Katmanlı Mimari (Controller ➔ Service ➔ Repository/Model):
 ```
 backend/
 ├── app/
-│   ├── api/             # HTTP & WebSocket Uç Noktaları (Controller Katmanı)
-│   │   ├── v1/
-│   │   │   ├── auth.py          # Oturum açma & profil geçişi (Düzenleyici/Sorgulayıcı)
-│   │   │   ├── assets.py        # Varlık ağacı (şube, kat, kafes, hasta/cihaz)
-│   │   │   ├── processes.py     # Canlı süreç başlatma, bitirme, olay ekleme
-│   │   │   ├── scanner.py       # Evrensel barkod/QR çözümleme servisi
-│   │   │   ├── tracker.py       # Müşteri canlı takip API & WebSocket
-│   │   │   └── media.py         # S3 presigned URL üretimi
-│   │   └── router.py
-│   │
-│   ├── core/            # Çekirdek Sistem Konfigürasyonu
-│   │   ├── config.py            # Pydantic Settings (.env yükleme)
-│   │   ├── database.py          # SQLAlchemy async engine & sessionmaker
-│   │   ├── redis.py             # Redis async connection pool
-│   │   └── security.py          # JWT, bcrypt şifreleme, yetki doğrulama
-│   │
-│   ├── models/          # SQLAlchemy Veritabanı Modelleri (Kutsal Üçlü)
-│   │   ├── person.py            # Persons, PersonRoles
-│   │   ├── asset.py             # Assets (Recursive Tree)
-│   │   ├── process.py           # ProcessDefinitions, AssetSessions, LiveProcesses
-│   │   └── consumable.py        # ProcessConsumables
-│   │
-│   ├── schemas/         # Pydantic Doğrulama Şemaları (DTO'lar)
-│   │   ├── person_schema.py
-│   │   ├── asset_schema.py
-│   │   ├── process_schema.py
-│   │   └── scanner_schema.py
-│   │
-│   ├── services/        # İş Mantığı Katmanı (Business Logic)
-│   │   ├── asset_service.py     # Varlık dolaşımı ve doluluk kontrolleri
-│   │   ├── process_engine.py    # Süreç özyineleme, başla/bitir hesapları
-│   │   ├── scanner_resolver.py  # Barkod ön eki (loc_, ast_, ses_) analizörü
-│   │   └── notification.py      # Redis Pub/Sub bildirim tetikleyicisi
-│   │
-│   └── templates/       # HTML Şablonları (Jinja2)
-│       ├── admin/               # Web Admin Sayfaları
-│       └── tracker/             # Müşteri Canlı Takip Sayfası
-│
-├── alembic/             # Veritabanı Migration Dosyaları
-├── main.py              # Uygulama Giriş Noktası & Middleware
+│   ├── api/v1/              # Endpoint'ler (auth, assets, processes, scanner, tracker, media)
+│   ├── core/                # config.py, database.py, redis.py, security.py
+│   ├── models/              # SQLAlchemy modelleri (Person, Asset, Process, Consumable)
+│   ├── schemas/             # Pydantic şemaları (Giriş/çıkış DTO'ları)
+│   ├── services/            # İş mantığı (Süreç motoru, barkod çözümleyici, bildirim)
+│   └── templates/           # Jinja2 HTML şablonları (admin, tracker)
+├── main.py                  # Giriş noktası & Nginx/Uvicorn köprüsü
 └── requirements.txt
 ```
 
-#### Cross-Cutting Concerns (Enine Kesen Kaygılar):
-1. **Kimlik ve Yetkilendirme (Auth & Scoped RBAC):**  
-   JWT (JSON Web Token) tabanlıdır. İstek başlığında gelen token çözülür, kullanıcının o şubedeki rolü (`superuser`, `admin`, `operator` veya varlık sahibi `client`) middleware düzeyinde denetlenir.
-2. **Kapsamlı Loglama (Structured Logging):**  
-   Her istek için bir `request_id` üretilir. Gelen istek, yanıt süresi ve hata logları standart JSON formatında yazılır (CrowdSec bu logları kolayca ayrıştırır).
-3. **CORS ve Rate Limiting:**  
-   FastAPI CORS middleware'i sadece tanımlı alan adlarına izin verir. Kötü niyetli istekler için IP bazlı istek sınırlandırması uygulanır.
-4. **Veritabanı Oturum Yönetimi (Session Lifecycle):**  
-   `async with get_db() as db:` kalıbı ile her istek için ayrı bir asenkron veritabanı oturumu açılır, işlem bitince otomatik commit/rollback edilir ve havuza iade edilir.
-
----
-
-### 7.2. Mobil Architecture (Flutter)
-
-Saha personeli için tasarlanan Flutter uygulaması **Feature-First & Repository Pattern** ile kurulur:
-
+### 7.2. Mobil Mimarisi (Flutter)
+Feature-First & Repository Pattern:
 ```
-mobile/
-├── lib/
-│   ├── core/                    # Ağ istemcisi, tema, yerel depolama
-│   │   ├── network/api_client.dart
-│   │   ├── theme/app_theme.dart # Yüksek kontrastlı, sahaya uygun arayüz
-│   │   └── constants/
-│   │
-│   ├── features/
-│   │   ├── scanner/             # Evrensel Kamera Vizörü
-│   │   │   ├── scanner_screen.dart
-│   │   │   └── scanner_controller.dart
-│   │   │
-│   │   ├── process/             # Süreç Yönetimi (Başlat / Bitir / Olay)
-│   │   │   ├── process_card_widget.dart
-│   │   │   ├── quick_actions_widget.dart
-│   │   │   └── process_controller.dart
-│   │   │
-│   │   ├── station/             # İstasyon & Kafes Durumu
-│   │   │   ├── station_detail_screen.dart
-│   │   │   └── asset_picker_modal.dart
-│   │   │
-│   │   └── auth/                # Giriş ve Şube Seçimi
-│   │
-│   └── main.dart
+mobile/lib/
+├── core/                    # API istemcisi, tema, sabitler
+├── features/
+│   ├── scanner/             # Evrensel Kamera Vizörü (mobile_scanner)
+│   ├── process/             # Canlı süreç yönetimi kartları ve butonları
+│   ├── station/             # İstasyon & Kafes durum ekranı
+│   └── auth/                # Giriş ve profil/şube seçimi
+└── main.dart
 ```
 
-#### Mobil Tarama ve Çalışma Prensibi:
-* **Tek Dokunuşla Vizör:** Uygulama açılır açılmaz veya ana sayfadaki dev kamera butonuna basılınca kamera açılır.
-* **Otomatik Ayrıştırma:**
-  * Okunan değer `loc_` ile başlıyorsa $\rightarrow$ `StationDetailScreen` açılır.
-  * Okunan değer `ast_` ile başlıyorsa $\rightarrow$ `AssetActiveProcessScreen` açılır.
-  * Okunan değer standart EAN barkod ise $\rightarrow$ Açık olan sürecin sarfiyat modalı tetiklenir.
-
----
-
-### 7.3. Web UI Architecture (Saf HTML / Vanilla CSS / Modern JS)
-
-Web tarafında ağır JavaScript kütüphaneleri (React/Vue/Angular) yerine **hafif, modüler ve sıfır build** prensibi uygulanır:
-
+### 7.3. Web UI Mimarisi (HTML5 + Vanilla CSS + JS)
+Sıfır derleme, cam efekti (glassmorphism), karanlık mod ve mobil uyumlu responsive tasarım:
 ```
 frontend/ (veya backend/templates & backend/static)
 ├── static/
-│   ├── css/
-│   │   ├── base.css             # CSS Sıfırlama ve Değişkenler (:root renkler)
-│   │   ├── components.css       # Cam efektli kartlar, butonlar, modal'lar
-│   │   └── tracker.css          # Canlı zaman tüneli ve mobil kart stilleri
-│   ├── js/
-│   │   ├── tracker_socket.js    # WebSocket canlı dinleyici ve DOM güncelleyici
-│   │   └── admin_dashboard.js   # Bayi filtreleme ve dinamik arama
-│   └── icons/
-│
+│   ├── css/style.css        # Glassmorphism, karanlık tema, CSS değişkenleri
+│   └── js/tracker_socket.js # Canlı WebSocket dinleyici ve DOM güncelleyici
 └── templates/
-    ├── base.html                # Ana layout (Navbar, bildirim alanı)
-    ├── admin/
-    │   ├── dashboard.html       # Şube kuşbakışı haritası & doluluk
-    │   ├── definitions.html     # Süreç legoları oluşturma sihirbazı
-    │   └── assets.html          # Varlık ağacı gezgini
-    └── tracker/
-        └── live.html            # Müşterinin açtığı canlı zaman tüneli
+    ├── admin/dashboard.html # Patron & Bayi kuşbakışı yönetim ekranı
+    └── tracker/live.html    # Müşteri canlı takip sayfası
 ```
 
-#### Tasarım Sistemi (Aesthetics):
-* **Lüks Koyu Tema (Dark Mode):** Derin lacivert/antrasit zeminler (`#0B0F19`), neon turkuaz ve amber aksan renkleri.
-* **Glassmorphism:** Hafif yarı saydam zeminler (`backdrop-filter: blur(12px)`), ince parlak bordürler.
-* **Mikro-Animasyonlar:** Durum değişimlerinde yeşil yanan nabız (pulse) animasyonları.
-* **Mobil Uyumluluk:** Her ekran %100 responsive flex/grid ile masaüstü, tablet ve mobil tarayıcılarda kusursuz akar.
+---
+
+## 8. DAĞITIM VE DEVOPS (GIT-NATIVE DEPLOYMENT)
+
+Sunucularda Docker yükü olmadan doğrudan Git tabanlı dağıtım:
+1. **Local'de Geliştir:** Kod yazılır, test edilir.
+2. **Push:** `git commit -m "feat: core process engine" && git push origin main`
+3. **Canlıya Alma (`node102` üzerinde):**
+   ```bash
+   cd /var/www/yonned
+   git pull origin main
+   source backend/venv/bin/activate
+   pip install -r backend/requirements.txt
+   alembic upgrade head
+   sudo systemctl restart yonned-api
+   ```
+4. **Otomatik Yedekleme (`node102` ➔ `node104`):**
+   Her gece saat 03:00'te PostgreSQL veritabanı şifrelenir ve SSH üzerinden `node104`ün 1 TB'lık `/mnt/data/yonned-backups/` dizinine kopyalanır.
+
+---
+
+## 9. GERÇEK HAYAT DOĞRULAMA SENARYOLARI (STRES TESTLERİ)
+
+* **Senaryo A (Çok Katlı Bayi & Varlık Dolaşımı):** Tarçın Kadıköy'de Zemin Kat Kafes 1'e girer, 1. Katta ameliyat olur. 3 ay sonra Beşiktaş Şubesine gittiğinde Beşiktaş çalışanı QR'ı okutur; tüm ameliyat geçmişi anında ekrandadır. Sıfır mükerrer kayıt!
+* **Senaryo B (Tıraşta Kaza & İlaç Barkodu):** Tıraş devam ederken kesik olur $\rightarrow$ Hekim anında `[+ Acil Müdahale]` sürecini açar $\rightarrow$ Ecza dolabından aldığı spreyin barkodunu okutur (tanımsızsa adını yazar, kaydeder) $\rightarrow$ Dikiş biter, fotoğraf yüklenir $\rightarrow$ Tıraş kaldığı yerden devam eder. Sıfır blokaj!
+* **Senaryo C (Patron-Müşteri Geçişi):** Mehmet Bey tek tıkla hem veteriner kliniğini hem oto servisini yönetir. Ayşe Hanım aynı ekranda hem kedisi Tarçın'ın ameliyatını hem BMW'sinin balata değişimini canlı izler.
