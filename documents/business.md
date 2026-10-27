@@ -152,3 +152,34 @@ Yonned uygulamasını açan bir birey, profil fotoğrafına tıklayarak tek doku
 ```
 
 Bu akışkanlık sayesinde kullanıcı hiçbir zaman iki farklı uygulama indirmek veya farklı hesaplarla giriş yapmak zorunda kalmaz. **İş hayatı ve kişisel varlıkları aynı ekosistemin içinde barış içinde akar.**
+
+---
+
+## 7. VARLIK PAYLAŞIMI VE SADE YETKİ FELSEFESİ (ASSET SHARING)
+
+Yonned'de karmaşık roller, kafa karıştıran unvanlar (co-owner, delegate, viewer vb.) yoktur. 
+Tek bir evrensel gerçek vardır:
+
+> **"Kişi kendi asetin patronudur. Varlığını istediği insanla paylaşabilir; paylaştığı kişinin ne yapabileceğine sadece 3 sade kutucukla kendisi karar verir."**
+
+```
+┌────────────────────────────────────────────────────────┐
+│  ASET PAYLAŞ: "Kedi Tarçın" veya "Pati Kliniği"        │
+├────────────────────────────────────────────────────────┤
+│  Kiminle Paylaşacaksın? : [ Telefon / Kişi Seç ]       │
+│                                                        │
+│  Bu Kişi Ne Yapabilir?                                 │
+│  [✅] Görüntüleyebilir (İzleme, geçmiş, fotoğraflar)   │
+│  [✅] İşlem Yapabilir  (Süreç başlatma, not, reçete)  │
+│  [❌] Yönetebilir      (Başkalarıyla paylaşma, silme)  │
+│                                                        │
+│  [ PAYLAŞ ]                                            │
+└────────────────────────────────────────────────────────┘
+```
+
+### Hayatın İçinden Örnekler:
+* **Eş ile Paylaşım:** Kedi Tarçın eş ile paylaşılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Açık`, `Yönet: Açık`.
+* **Klinik Çalışanı ile Paylaşım:** Muayene odası veya kafesler asistan hekimle paylaşılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Açık`, `Yönet: Kapalı`.
+* **Sessiz Ortak veya Muhasebeci ile Paylaşım:** Şirket varlıkları ortağa açılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Kapalı`, `Yönet: Kapalı`.
+* **Makam Şoförü ile Paylaşım:** Şirket aracı şoförle paylaşılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Açık (servise sokabilir)`, `Yönet: Kapalı`.
+
