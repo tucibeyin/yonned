@@ -157,29 +157,29 @@ Bu akışkanlık sayesinde kullanıcı hiçbir zaman iki farklı uygulama indirm
 
 ## 7. VARLIK PAYLAŞIMI VE SADE YETKİ FELSEFESİ (ASSET SHARING)
 
-Yonned'de karmaşık roller, kafa karıştıran unvanlar (co-owner, delegate, viewer vb.) yoktur. 
+Yonned'de kafa karıştıran unvanlar ve karmaşık matrisler yoktur. 
 Tek bir evrensel gerçek vardır:
 
-> **"Kişi kendi asetin patronudur. Varlığını istediği insanla paylaşabilir; paylaştığı kişinin ne yapabileceğine sadece 3 sade kutucukla kendisi karar verir."**
+> **"Kişi kendi asetin patronudur. Varlığını istediği insanla paylaşabilir; paylaşılan kişinin yetkisi sadece 3 kademeli seviyeden biridir:"**
 
 ```
 ┌────────────────────────────────────────────────────────┐
 │  ASET PAYLAŞ: "Kedi Tarçın" veya "Pati Kliniği"        │
 ├────────────────────────────────────────────────────────┤
-│  Kiminle Paylaşacaksın? : [ Telefon / Kişi Seç ]       │
+│  Kiminle Paylaşacaksın? : [ Kişi / Telefon Seç ]       │
 │                                                        │
-│  Bu Kişi Ne Yapabilir?                                 │
-│  [✅] Görüntüleyebilir (İzleme, geçmiş, fotoğraflar)   │
-│  [✅] İşlem Yapabilir  (Süreç başlatma, not, reçete)  │
-│  [❌] Yönetebilir      (Başkalarıyla paylaşma, silme)  │
+│  Yetki Seviyesi:                                       │
+│  ( ) 1. Görüntüleme     ➔ Sadece izler, takip eder     │
+│  ( ) 2. İşlem Yapabilme ➔ Görür + Süreç işletir, yazar │
+│  (•) 3. Hepsi           ➔ Görür + İşlem yapar + Yönetir│
 │                                                        │
 │  [ PAYLAŞ ]                                            │
 └────────────────────────────────────────────────────────┘
 ```
 
-### Hayatın İçinden Örnekler:
-* **Eş ile Paylaşım:** Kedi Tarçın eş ile paylaşılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Açık`, `Yönet: Açık`.
-* **Klinik Çalışanı ile Paylaşım:** Muayene odası veya kafesler asistan hekimle paylaşılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Açık`, `Yönet: Kapalı`.
-* **Sessiz Ortak veya Muhasebeci ile Paylaşım:** Şirket varlıkları ortağa açılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Kapalı`, `Yönet: Kapalı`.
-* **Makam Şoförü ile Paylaşım:** Şirket aracı şoförle paylaşılır $\rightarrow$ `Görüntüle: Açık`, `İşlem Yap: Açık (servise sokabilir)`, `Yönet: Kapalı`.
+### Seviyelerin Anlamı ve Gerçek Hayat:
+1. **Görüntüleme (`view`):** Sadece izler ve takip eder. Hiçbir şeyi değiştiremez. *(Örn: Müşteri yakını, stajyer, sessiz ortak, muhasebeci).*
+2. **İşlem Yapabilme (`operate`):** Görür + Süreç başlatır/bitirir, not yazar, fotoğraf çeker, ilaç okutur. Ama aseti başkasıyla paylaşamaz veya silemez. *(Örn: Klinikteki hekim, oto servis ustası, şoför).*
+3. **Hepsi (`all`):** Görür + İşlem yapar + Aseti yönetir, düzenler ve başkalarıyla da paylaşabilir. *(Örn: Eş, şirket ortağı, tam yetkili genel müdür).*
+
 

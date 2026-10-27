@@ -208,16 +208,17 @@ CREATE INDEX idx_assets_owner ON assets(owner_person_id);
 CREATE INDEX idx_assets_qr ON assets(qr_code);
 
 -- 3.1. EVRENSEL VARLIK PAYLAŞIMI (ASSET SHARES - SIFIR KARIŞIKLIK)
--- Kişi assetinin patronudur. Paylaşır ve sadece "Ne yapabilir?" diye sorulur:
+-- Kişi assetinin patronudur. Paylaşırken sadece 3 seviyeden birini seçer:
 CREATE TABLE asset_shares (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     shared_with_person_id UUID NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
     
-    -- Sadece 3 Hak:
-    can_view BOOLEAN DEFAULT TRUE,       -- Görüntüleyebilir mi? (İzleme, geçmiş, canlı takip)
-    can_operate BOOLEAN DEFAULT FALSE,   -- İşlem yapabilir mi? (Süreç başlatma, tamamlama, not)
-    can_manage BOOLEAN DEFAULT FALSE,    -- Yönetebilir mi? (Başkasıyla paylaşma, yetki verme)
+    -- Hiyerarşik 3 Seviye:
+    permission_level VARCHAR(20) NOT NULL DEFAULT 'view',
+    -- 'view'    : Görüntüleme (Sadece izler, takip eder)
+    -- 'operate' : İşlem Yapabilme (Görür + Süreç başlatır/bitirir, veri girer)
+    -- 'all'     : Hepsi (Görür + İşlem yapar + Yönetir ve başkalarıyla paylaşır)
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(asset_id, shared_with_person_id)
