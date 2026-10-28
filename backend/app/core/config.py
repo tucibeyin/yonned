@@ -18,11 +18,11 @@ class Settings(BaseSettings):
     # Cache & PubSub - Redis 7 (Node102)
     REDIS_URL: str = "redis://127.0.0.1:6379/0"
     
-    # Storage - MinIO Object Storage (Node104)
-    MINIO_ENDPOINT: str = "82.39.86.94:9000"
-    MINIO_ACCESS_KEY: str = "yonned_minio_admin"
+    # Storage - MinIO Object Storage (Node104 over WireGuard Mesh)
+    MINIO_ENDPOINT: str = "10.10.0.4:9000"
+    MINIO_ACCESS_KEY: str = "yonned_prod"
     MINIO_SECRET_KEY: str = "yonned_minio_secret"
-    MINIO_BUCKET_NAME: str = "yonned-media"
+    MINIO_BUCKET_NAME: str = "yonned-prod-media"
     MINIO_SECURE: bool = False
     
     model_config = SettingsConfigDict(

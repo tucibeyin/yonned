@@ -71,10 +71,10 @@ real_ip_header CF-Connecting-IP;
 
 ## 2. SUNUCU TOPOLOJİSİ VE ROLLER
 
-| Sunucu Adı | IP Adresi | Donanım (vCPU / RAM / Disk / Port) | Rol ve Servisler | Durum |
-| :--- | :---: | :--- | :--- | :---: |
-| **`node102`** | `185.205.194.232` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Ana Hesaplama & Veri Düğümü (Compute & DB):**<br>• `yonned_prod` (Port 8000, PostgreSQL `yonned_prod_db`, Redis Port 6379)<br>• `yonned_staging` (Port 8001, PostgreSQL `yonned_staging_db`, Redis Port 6380)<br>• Nginx, CrowdSec, nftables | **Aktif (Çift Ortam)** |
-| **`node104`** | `82.39.86.94` | 2 vCPU / 3 GB RAM / 10 GB OS + 1 TB HDD / 1 Gbps | **Medya Kasası (Storage Vault):**<br>• MinIO S3 (`/mnt/data/minio`)<br>• Bucket: `yonned-prod-media` & `yonned-staging-media`<br>• Veritabanı Arşiv Yedekleri | **Aktif** |
+| Sunucu Adı | Genel IP | WireGuard Mesh IP | Donanım (vCPU / RAM / Disk / Port) | Rol ve Servisler | Durum |
+| :--- | :---: | :---: | :--- | :--- | :---: |
+| **`node102`** | `185.205.194.232` | `10.10.0.2` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Ana Hesaplama & Veri Düğümü (Compute & DB):**<br>• `yonned_prod` (Port 8000, PostgreSQL `yonned_prod_db`, Redis Port 6379)<br>• `yonned_staging` (Port 8001, PostgreSQL `yonned_staging_db`, Redis Port 6380)<br>• Nginx, CrowdSec, nftables, WireGuard | **Aktif (Çift Ortam)** |
+| **`node104`** | `109.110.170.251` | `10.10.0.4` | 2 vCPU / 3 GB RAM / 10 GB OS + 1 TB HDD / 1 Gbps | **Medya Kasası (Storage Vault):**<br>• MinIO S3 (`/mnt/data/minio`) - Sadece `10.10.0.4:9000`<br>• IAM İzolasyonu: `yonned_prod` & `yonned_staging`<br>• Bucket: `yonned-prod-media` & `yonned-staging-media`<br>• Veritabanı Arşiv Yedekleri | **Aktif** |
 
 ---
 
@@ -193,7 +193,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt update && sudo apt install -y \
 * **PostgreSQL 17 (`node102`):** `127.0.0.1:5432` (`yonned_prod_db` ve `yonned_staging_db`).
 * **Redis Prod (`node102`):** `127.0.0.1:6379` (`yonned_prod_redis`).
 * **Redis Staging (`node102`):** `127.0.0.1:6380` (`yonned_staging_redis`).
-* **MinIO S3 (`node104`):** Port 9000 (Sadece yetkili API IP'lerine açık - `yonned-prod-media` & `yonned-staging-media`).
+* **WireGuard Mesh (`node102` <-> `node104`):** UDP Port 51820 (Kernel-native şifreli özel ağ `10.10.0.0/24`).
+* **MinIO S3 (`node104`):** `10.10.0.4:9000` (Genel internete TAMAMEN KAPALI; yalnızca WireGuard üzerinden `node102`'ye açık - `yonned-prod-media` & `yonned-staging-media`).
 
 ---
 
@@ -265,6 +266,76 @@ Tüm servisler, API'ler ve arkaplan worker'ları doğrudan Linux `systemd` servi
   # Staging Redis (Port 6380)
   redis-cli -p 6380 ping  # PONG
   ```
+
+---
+
+## 11. WIREGUARD MESH AĞI VE MINIO S3 İZOLASYONU
+
+### 11.1. Ağ Topolojisi ve Çekirdek Düzeyinde Şifreleme (Kernel-Native Overlay)
+`node102` (Compute & DB) ile `node104` (Storage Vault) arasındaki tüm veri akışı, Linux çekirdeğinde yerel olarak koşan **WireGuard** (`wg0`) tüneli üzerinden ChaCha20-Poly1305 algoritmasıyla şifrelenir.
+
+| Düğüm | Genel IP | WireGuard IP (`wg0`) | Dinleme Portu | Eşleşen Düğüm (Peer) |
+| :--- | :---: | :---: | :---: | :--- |
+| **`node102`** | `185.205.194.232` | `10.10.0.2/24` | UDP `51820` | `node104` (`109.110.170.251:51820`) |
+| **`node104`** | `109.110.170.251` | `10.10.0.4/24` | UDP `51820` | `node102` (`185.205.194.232:51820`) |
+
+* **Hizmet Yönetimi:**
+  ```bash
+  sudo systemctl enable --now wg-quick@wg0
+  sudo wg show
+  ```
+* **Gecikme Süresi (Latency):** Tünel üzerinden RTT ortalama `4.4 ms`, paket kaybı `%0`.
+
+### 11.2. MinIO S3 İnternet İzolasyonu (Port Shielding)
+MinIO servisi genel internete (`0.0.0.0`) **asla bağlanmaz**.
+* `/etc/minio/minio.conf` dosyasında dinleme adresi doğrudan WireGuard IP'sine bağlanmıştır:
+  ```bash
+  MINIO_OPTS="--address 10.10.0.4:9000 --console-address 10.10.0.4:9001"
+  ```
+* **Dış Dünya Testi:** Genel IP üzerinden `http://109.110.170.251:9000` adresine gelen bağlantılar işletim sistemi çekirdeğince anında reddedilir (`Connection refused`).
+* **Önyükleme Güvencesi:** `/etc/sysctl.d/99-minio.conf` dosyasına `net.ipv4.ip_nonlocal_bind=1` eklenerek servislerin açılış sırasından bağımsız olarak güvenle başlaması sağlanmıştır.
+
+### 11.3. MinIO IAM Kullanıcı ve Bucket İzolasyonu
+Üretim ve Staging ortamları için MinIO Client (`mc`) ile ayrı IAM kullanıcıları ve en az yetki (Least Privilege) ilkeli IAM politikaları oluşturulmuştur:
+
+| Ortam | IAM Kullanıcısı | Erişim Yetkisi Verilen Bucket | Politika Adı |
+| :--- | :--- | :--- | :--- |
+| **Üretim (`yonned_prod`)** | `yonned_prod` | `yonned-prod-media` & `yonned-prod-media/*` | `yonned-prod-policy` |
+| **Staging (`yonned_staging`)** | `yonned_staging` | `yonned-staging-media` & `yonned-staging-media/*` | `yonned-staging-policy` |
+
+* **Politika Şablonu (Örnek: `yonned-prod-policy`):**
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetBucketLocation",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads"
+        ],
+        "Resource": ["arn:aws:s3:::yonned-prod-media"]
+      },
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:AbortMultipartUpload",
+          "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:ListMultipartUploadParts",
+          "s3:PutObject"
+        ],
+        "Resource": ["arn:aws:s3:::yonned-prod-media/*"]
+      }
+    ]
+  }
+  ```
+
+### 11.4. Çapraz Erişim İzolasyon Testi (Doğrulandı)
+* `yonned_prod` kullanıcısının `yonned-staging-media` bucket'ına erişimi: `AccessDenied` (%100 Engellendi).
+* `yonned_staging` kullanıcısının `yonned-prod-media` bucket'ına erişimi: `AccessDenied` (%100 Engellendi).
+* `node102` API üzerinden Python `minio` istemcisi ile yükleme, sağlama ve silme işlemleri tünel üzerinden başarıyla test edilmiş ve onaylanmıştır.
 
 
 

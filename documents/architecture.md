@@ -62,29 +62,29 @@ Sistem; donanım verimliliği ve kaynak izolasyonu için **Tek Sunucuda Çift Or
 │ └──────────────────────────────────┘ └───────────────────────────────┘ │
 └──────────────────┬─────────────────────────────────────────────────────┘
                    │
-                   ▼ Port 9000 (MinIO S3)
+                   ▼ WireGuard Şifreli Mesh Tüneli (10.10.0.0/24 | UDP 51820)
 ┌────────────────────────────────────────────────────────────────────────┐
-│ KATMAN 3: NODE104 (Object Storage)                                     │
-│ • IP: 82.39.86.94 | 2 vCPU | 3 GB RAM | 1 TB HDD (/mnt/data)          │
-│ • MinIO S3 Server (:9000 & :9001)                                      │
-│ • Buckets: yonned-prod-media & yonned-staging-media                    │
+│ KATMAN 3: NODE104 (Object Storage Vault - WireGuard IP: 10.10.0.4)     │
+│ • Genel IP: 109.110.170.251 | wg0: 10.10.0.4 | 1 TB HDD (/mnt/data)    │
+│ • MinIO S3 Sunucu (10.10.0.4:9000 - Dış Dünyaya %100 Kapalı)           │
+│ • IAM Ayrımı: yonned_prod (prod-media) & yonned_staging (staging-media)│
 │ • Veritabanı Otomatik Arşiv Yedekleri                                  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Donanım Dağılımı ve Sunucu Rolleri:
-1. **`node102` (Ana Hesaplama & Veri Düğümü):** Canlı (`yonned_prod`) ve Test (`yonned_staging`) ortamlarını tek çatı altında %100 izole süreçlerle çalıştıran ana sunucu.
-2. **`node104` (Üretim & Staging Medya Kasası):** 1 TB HDD üzerinde MinIO S3 nesne depolama kasası (`/mnt/data/minio`) ve arşivler.
+1. **`node102` (Ana Hesaplama & Veri Düğümü):** Canlı (`yonned_prod`) ve Test (`yonned_staging`) ortamlarını tek çatı altında %100 izole süreçlerle çalıştıran ana sunucu. WireGuard IP: `10.10.0.2`.
+2. **`node104` (Üretim & Staging Medya Kasası):** 1 TB HDD üzerinde MinIO S3 nesne depolama kasası (`/mnt/data/minio`) ve arşivler. WireGuard IP: `10.10.0.4`. MinIO portu (9000) genel internete tamamen kapalı olup sadece WireGuard mesh ağı üzerinden `node102`'ye açıktır.
 3. **`node101` & `node105`:** Serbest bekleme düğümleri.
 
 ### Geliştirme ve Kodlama Dili Standardı:
 * **Kod Dili:** %100 **İngilizce** (Değişkenler, fonksiyonlar, sınıf adları, tablo ve sütun adları, API endpoint'leri).
 * **Yorum ve Dokümantasyon Dili:** **Türkçe** (Docstring'ler, kod içi açıklamalar, commit açıklamaları ve şartname belgeleri).
 
-| Sunucu | Rol | IP | vCPU / RAM / Disk | Dışa Açık Servisler |
-| :--- | :--- | :---: | :---: | :--- |
-| **`node102`** | Compute & DB (`prod` + `staging`) | `185.205.194.232` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx) |
-| **`node104`** | Object Storage Vault | `82.39.86.94` | 2 vCPU / 3 GB / 1 TB HDD | Port 22 (SSH), 9000 (MinIO - kısıtlı) |
+| Sunucu | Rol | Genel IP | WireGuard IP | Donanım (vCPU / RAM / Disk) | Dışa Açık Servisler |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| **`node102`** | Compute & DB (`prod` + `staging`) | `185.205.194.232` | `10.10.0.2` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx), 51820 (WireGuard UDP) |
+| **`node104`** | Object Storage Vault | `109.110.170.251` | `10.10.0.4` | 2 vCPU / 3 GB / 1 TB HDD | Port 22 (SSH), 51820 (WireGuard UDP). MinIO Port 9000 İNTERNETE KAPALI. |
 
 ---
 
@@ -93,7 +93,7 @@ Sistem; donanım verimliliği ve kaynak izolasyonu için **Tek Sunucuda Çift Or
 * **12-Factor App:** Konfigürasyonlar kod içine gömülmez; işletim sistemi ortam değişkenleri (`.env`) üzerinden beslenir.
 * **Strict Typing:** Python tarafında **`pydantic-settings`** kullanılır. Eksik veya geçersiz tipte bir ayar varsa sistem ayağa kalkmaz (Fail-Fast).
 * **Güvenlik (`chmod 600`):** `.env` dosyaları yalnızca yetkili kullanıcıya okunur, `.gitignore` ile korunur.
-* **İzolasyon Garantisi:** `yonned_staging` kullanıcısının canlı `yonned_prod_db` veritabanına bağlantı izni çekirdekte `REVOKE CONNECT` ile kapatılmıştır.
+* **İzolasyon Garantisi:** `yonned_staging` kullanıcısının canlı `yonned_prod_db` veritabanına bağlantı izni çekirdekte `REVOKE CONNECT` ile kapatılmıştır. Benzer şekilde MinIO IAM politikalarıyla staging kullanıcısının prod bucket'ına erişimi imkansız kılınmıştır.
 
 ```ini
 # Üretim Yapılandırması: /var/www/yonned.com/backend/.env
@@ -101,16 +101,22 @@ PROJECT_NAME="yonned_prod"
 ENVIRONMENT="production"
 DATABASE_URL=postgresql+asyncpg://yonned_prod:GIZLI_PAROLA@127.0.0.1:5432/yonned_prod_db
 REDIS_URL=redis://127.0.0.1:6379/0
-MINIO_ENDPOINT=82.39.86.94:9000
+MINIO_ENDPOINT=10.10.0.4:9000
+MINIO_ACCESS_KEY=yonned_prod
+MINIO_SECRET_KEY=PROD_IAM_GIZLI_ANAHTAR
 MINIO_BUCKET_NAME=yonned-prod-media
+MINIO_SECURE=false
 
 # Staging Yapılandırması: /var/www/staging.yonned.com/backend/.env
 PROJECT_NAME="yonned_staging"
 ENVIRONMENT="staging"
 DATABASE_URL=postgresql+asyncpg://yonned_staging:GIZLI_PAROLA@127.0.0.1:5432/yonned_staging_db
 REDIS_URL=redis://127.0.0.1:6380/0
-MINIO_ENDPOINT=82.39.86.94:9000
+MINIO_ENDPOINT=10.10.0.4:9000
+MINIO_ACCESS_KEY=yonned_staging
+MINIO_SECRET_KEY=STAGING_IAM_GIZLI_ANAHTAR
 MINIO_BUCKET_NAME=yonned-staging-media
+MINIO_SECURE=false
 ```
 
 ---
