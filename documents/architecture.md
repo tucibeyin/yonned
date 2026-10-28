@@ -67,10 +67,10 @@ Sistem; üretim ortamında yüksek erişilebilirlik ve kaynak ayrımı için **2
 ```
 
 ### Donanım Dağılımı ve Sunucu Rolleri:
-1. **`node102` (Üretim Compute & DB):** Canlı müşteri trafiği, PostgreSQL 17, Redis 7, FastAPI ve Nginx.
-2. **`node104` (Üretim Medya Deposu):** 1 TB disk üzerinde canlı MinIO S3 medya kasası ve yedekleme.
-3. **`node103` (Tam Bağımsız Staging & Test):** Üretimden tamamen izole, tek başına tüm servisleri (DB, Redis, API, Test MinIO) barındıran; tüm testlerin, göçlerin (migration) ve stres denemelerinin koşturulacağı laboratuvar sunucusu.
-4. **`node101` & `node105`:** Yedek / serbest bekleme düğümleri.
+1. **`node102` (Ana Hesaplama & Veri Düğümü):** Canlı (`yonned_prod`) ve Test (`yonned_staging`) ortamlarını tek çatı altında %100 izole süreçlerle çalıştıran ana sunucu.
+2. **`node104` (Üretim & Staging Medya Kasası):** 1 TB HDD üzerinde MinIO S3 nesne depolama kasası (`/mnt/data/minio`) ve arşivler.
+3. **`node103` (Stratejik Yedek & İzleme Düğümü):** Canlı veritabanı kopyasını (Hot Standby Replica) ve tüm sunucuların telemetri/log izleme stack'ini (Prometheus/Grafana) barındıran felaket kurtarma düğümü.
+4. **`node101` & `node105`:** Serbest bekleme düğümleri.
 
 ### Geliştirme ve Kodlama Dili Standardı:
 * **Kod Dili:** %100 **İngilizce** (Değişkenler, fonksiyonlar, sınıf adları, tablo ve sütun adları, API endpoint'leri).
@@ -78,9 +78,9 @@ Sistem; üretim ortamında yüksek erişilebilirlik ve kaynak ayrımı için **2
 
 | Sunucu | Rol | IP | vCPU / RAM / Disk | Dışa Açık Servisler |
 | :--- | :--- | :---: | :---: | :--- |
-| **`node102`** | Production Compute/DB | `185.205.194.173` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx) |
-| **`node104`** | Production Object Vault| `82.39.86.94` | 2 vCPU / 3 GB / 1 TB HDD | Port 22 (SSH), 9000 (MinIO - kısıtlı) |
-| **`node103`** | Standalone Staging Node| `185.205.194.236` | 3 vCPU / 8 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Staging Web/API) |
+| **`node102`** | Compute & DB (`prod` + `staging`) | `185.205.194.173` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx) |
+| **`node104`** | Object Storage Vault | `82.39.86.94` | 2 vCPU / 3 GB / 1 TB HDD | Port 22 (SSH), 9000 (MinIO - kısıtlı) |
+| **`node103`** | Standby Replica & İzleme | `185.205.194.236` | 3 vCPU / 8 GB / 80 GB SSD | Port 22 (SSH), 3000 (Grafana) |
 
 ---
 
@@ -88,17 +88,25 @@ Sistem; üretim ortamında yüksek erişilebilirlik ve kaynak ayrımı için **2
 
 * **12-Factor App:** Konfigürasyonlar kod içine gömülmez; işletim sistemi ortam değişkenleri (`.env`) üzerinden beslenir.
 * **Strict Typing:** Python tarafında **`pydantic-settings`** kullanılır. Eksik veya geçersiz tipte bir ayar varsa sistem ayağa kalkmaz (Fail-Fast).
-* **Güvenlik (`chmod 600`):** `.env.production` dosyası yalnızca `root`/`yonned` kullanıcısına okunur, `.gitignore` ile korunur.
+* **Güvenlik (`chmod 600`):** `.env` dosyaları yalnızca yetkili kullanıcıya okunur, `.gitignore` ile korunur.
+* **İzolasyon Garantisi:** `yonned_staging` kullanıcısının canlı `yonned_prod_db` veritabanına bağlantı izni çekirdekte `REVOKE CONNECT` ile kapatılmıştır.
 
 ```ini
-# /var/www/yonned.com/.env.production
-DATABASE_URL=postgresql+asyncpg://yonned:GIZLI_PAROLA@127.0.0.1:5432/yonned_db
+# Üretim Yapılandırması: /var/www/yonned.com/backend/.env
+PROJECT_NAME="yonned_prod"
+ENVIRONMENT="production"
+DATABASE_URL=postgresql+asyncpg://yonned_prod:GIZLI_PAROLA@127.0.0.1:5432/yonned_prod_db
 REDIS_URL=redis://127.0.0.1:6379/0
-SECRET_KEY=64_KARAKTER_HEX_GIZLI_ANAHTAR
-S3_ENDPOINT_URL=http://82.39.86.94:9000
-S3_ACCESS_KEY=MINIO_ACCESS_KEY
-S3_SECRET_KEY=MINIO_SECRET_KEY
-S3_BUCKET_NAME=yonned-media
+MINIO_ENDPOINT=82.39.86.94:9000
+MINIO_BUCKET_NAME=yonned-prod-media
+
+# Staging Yapılandırması: /var/www/staging.yonned.com/backend/.env
+PROJECT_NAME="yonned_staging"
+ENVIRONMENT="staging"
+DATABASE_URL=postgresql+asyncpg://yonned_staging:GIZLI_PAROLA@127.0.0.1:5432/yonned_staging_db
+REDIS_URL=redis://127.0.0.1:6380/0
+MINIO_ENDPOINT=82.39.86.94:9000
+MINIO_BUCKET_NAME=yonned-staging-media
 ```
 
 ---

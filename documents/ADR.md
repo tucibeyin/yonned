@@ -39,6 +39,15 @@ Yonned projesinde üretilen her satır kod aşağıdaki endüstriyel standartlar
   4. `DELETE` $\rightarrow$ `can_delete` (Süreç veya varlık silme)
 * **Kazanım:** HTTP metodları ile yetki doğrulaması 1:1 eşleşir; kodda karmaşık yetki matrisleri yerine tek satırlık `if not can_create` filtreleri çalışır.
 
+### 2.2. Mimari Karar Kaydı (ADR-002): Tek Düğümde İzole Çift Ortam ve Standart İsimlendirme (`yonned_prod` & `yonned_staging`)
+* **Karar:** Donanım ve maliyet verimliliğini maksimize etmek amacıyla Staging ve Production ortamları aynı ana hesaplama sunucusu (**`node102`**) üzerinde, ancak **%100 izole ağ, servis, veritabanı ve Redis süreçleriyle** konuşlandırılmıştır.
+* **Standart İsimlendirme Sözleşmesi:** Sistemdeki tüm servisler, worker'lar, veritabanları ve yetkiler istisnasız `yonned_prod` ve `yonned_staging` önekleriyle adlandırılır:
+  1. **Servisler:** `yonned_prod_api`, `yonned_prod_critical_worker`, `yonned_prod_worker`, `yonned_prod_redis` $\leftrightarrow$ `yonned_staging_api`, `yonned_staging_critical_worker`, `yonned_staging_worker`, `yonned_staging_redis`.
+  2. **Veritabanları & Roller:** `yonned_prod_db` (`yonned_prod`) $\leftrightarrow$ `yonned_staging_db` (`yonned_staging`).
+  3. **Ağ Portları:** Port `8000` (Prod API) $\leftrightarrow$ Port `8001` (Staging API); Port `6379` (Prod Redis) $\leftrightarrow$ Port `6380` (Staging Redis).
+  4. **Medya Kasası (`node104`):** `yonned-prod-media` $\leftrightarrow$ `yonned-staging-media`.
+* **Kazanım:** `node103` boşa çıkarılarak felaket kurtarma (PostgreSQL Streaming Replica) veya merkezi izleme (Grafana/Prometheus) gibi stratejik görevlere tahsis edilmiştir.
+
 ---
 
 ## 3. PROJE MONOREPO DİZİN YAPISI
@@ -46,32 +55,31 @@ Yonned projesinde üretilen her satır kod aşağıdaki endüstriyel standartlar
 Proje, backend, mobil, web ve belgeleri tek bir çatı altında toplayan monorepo mimarisindedir:
 
 ```
-/var/www/yonned.com/ (Sunucu Kök Dizini)
-├── backend/                  # Python 3.12+ / FastAPI / SQLAlchemy Async Servisi
+/var/www/yonned.com/ (Üretim Kök Dizini - yonned_prod)
+/var/www/staging.yonned.com/ (Staging Kök Dizini - yonned_staging)
+├── backend/                  # Python 3.13+ / FastAPI / SQLAlchemy Async Servisi
 │   ├── alembic/              # Veritabanı şema göç sözleşmeleri (Migrations)
 │   │   ├── versions/         # Versiyon dosyaları (0001_initial_schema.py, ...)
 │   │   └── env.py            # Asyncpg göç motoru
 │   ├── app/
 │   │   ├── api/              # REST Controller katmanı
-│   │   │   ├── deps.py       # Auth ve DB bağımlılık enjeksiyonları
-│   │   │   └── v1/           # v1 API endpoint'leri (auth, assets, vasifs, sessions, ...)
 │   │   ├── core/             # config.py, database.py, security.py
-│   │   ├── models/           # SQLAlchemy 2.0 Declarative ORM modelleri (Person, Asset, Vasif, ...)
+│   │   ├── models/           # SQLAlchemy 2.0 ORM modelleri (Person, Asset, Vasif, ...)
 │   │   ├── schemas/          # Pydantic v2 veri doğrulama ve DTO sözleşmeleri
 │   │   ├── services/         # İş mantığı (PermissionService, ScannerService, ...)
+│   │   ├── workers/          # Arkaplan işlemcileri (critical_worker.py, default_worker.py)
 │   │   └── main.py           # FastAPI ASGI giriş noktası
 │   ├── tests/                # Pytest test bataryası (unit, e2e, integration)
+│   ├── pytest.ini            # Test konfigürasyonu (asyncio auto)
 │   ├── requirements.txt      # Python bağımlılıkları
 │   └── alembic.ini           # Alembic konfigürasyonu
 ├── frontend/                 # Web Arayüzleri (Patron Admin & Müşteri Canlı Takipçi)
-│   ├── static/               # Saf CSS (Glassmorphism), Vanilla JS
-│   └── templates/            # Jinja2 HTML5 SSR şablonları
 ├── mobile/                   # Flutter (Dart) Mobil Uygulama Projesi
-│   └── lib/                  # MVVM mimarisinde vizör ve süreç ekranları
 └── documents/                # Tek Gerçek Kaynağı (SSOT) Dokümantasyon Kasası
     ├── architecture.md       # Teknik Mimari ve Sistem Şartnamesi (Teknik SSOT)
     ├── business.md           # İş Modeli, Süreçler ve Ürün Vizyonu (İş SSOT)
     ├── test.md               # Test, Kalite Güvencesi ve Doğrulama Şartnamesi (Test SSOT)
+    ├── configurations.md     # OS, Sysctl, Ulimits, Cloudflare & Systemd Şartnamesi
     └── ADR.md                # Mimari Karar Kayıtları ve Geliştirme Yönergeleri (Bu Belge)
 ```
 
@@ -79,35 +87,59 @@ Proje, backend, mobil, web ve belgeleri tek bir çatı altında toplayan monorep
 
 ## 4. DAĞITIM VE YAŞAM DÖNGÜSÜ (DEPLOYMENT LIFECYCLE)
 
-Sistemde yerel ortamda test koşumu yapılmaz; tüm doğrulama gerçek Linux ortamında icra edilir.
+Yonned platformunda yerel ortamda test koşumu yapılmaz; tüm kod geliştirme döngüsü aşağıdaki 7 sıralı adımla icra edilir:
 
 ```
-┌──────────────────────┐
-│  1. LOCAL ORTAM      │  Kodlama yapılır (Clean Code & İngilizce kod)
-│     (Geliştirici)    │  Değişiklikler incelenir
-└──────────┬───────────┘
-           │
-           ▼  git push origin main
-┌──────────────────────┐
-│  2. GITHUB REPO      │  Merkezi kod deposu (https://github.com/tucibeyin/yonned.git)
-└──────────┬───────────┘
-           │
-           ▼  git pull origin main
-┌──────────────────────┐
-│  3. NODE103          │  🧪 TAM BAĞIMSIZ STAGING VE TEST ORTAMI
-│     (Staging Node)   │  • /var/www/yonned.com/ dizininde git pull
-│     (185.205.194.236)│  • alembic upgrade head (Veritabanı göçü)
-└──────────┬───────────┘  • pytest tests/ -v (Tüm test bataryası koşturulur)
-           │
-           ▼  TESTLER %100 YEŞİL ONAY ALDIKTAN SONRA:
 ┌────────────────────────────────────────────────────────┐
-│  4. ÜRETİM ORTAMI (PRODUCTION DEPLOYMENT)              │
-│                                                        │
-│  [ NODE102 - Compute & DB ]     [ NODE104 - Storage ]  │
-│  • cd /var/www/yonned.com/      • cd /var/www/yonned.com/
-│  • git pull origin main         • git pull origin main │
-│  • alembic upgrade head         • MinIO depolama kontrolü
-│  • sudo systemctl restart yonned-api                   │
+│  1. LOCAL GELİŞTİRME (LOCAL DEV)                       │
+│  • Clean Code & Clean Architecture standartlarında kod │
+│  • %100 İngilizce kod / %100 Türkçe yorum kuralı       │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼ git push origin main
+┌────────────────────────────────────────────────────────┐
+│  2. GITHUB REPO                                        │
+│  • Merkezi kod deposu (github.com/tucibeyin/yonned)    │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼ git pull (staging)
+┌────────────────────────────────────────────────────────┐
+│  3. STAGING GIT PULL (NODE102 - STAGING ORTAMI)        │
+│  • cd /var/www/staging.yonned.com                      │
+│  • git pull origin main                                │
+│  • venv/bin/alembic upgrade head (Staging DB Göçü)     │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼ pytest koşturulur
+┌────────────────────────────────────────────────────────┐
+│  4. TEST ONAY                                          │
+│  • venv/bin/pytest tests/ -v (Linux Bare-Metal Testi)  │
+│  • %100 YEŞİL ONAY ALINMADAN ASLA İLERLENEMEZ!         │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼ Testler geçince
+┌────────────────────────────────────────────────────────┐
+│  5. DÖKÜMANTASYON GÜNCELLE                             │
+│  • Mimari, test veya konfigürasyon değişiklikleri      │
+│    documents/ dizinindeki SSOT belgelerine işlenir     │
+│  • Dokümantasyon güncellemeleri git'e commitlenir      │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼ git pull (prod)
+┌────────────────────────────────────────────────────────┐
+│  6. PROD GIT PULL (NODE102 & NODE104)                  │
+│  • node102: cd /var/www/yonned.com && git pull         │
+│  • node104: cd /var/www/yonned.com && git pull         │
+│  • node102: venv/bin/alembic upgrade head (Canlı DB)   │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼ Servisler yeniden başlatılır
+┌────────────────────────────────────────────────────────┐
+│  7. CANLIYA ALMA İŞLEMLERİ (PRODUCTION RELEASE)        │
+│  • sudo systemctl restart yonned_prod_api              │
+│  • sudo systemctl restart yonned_prod_critical_worker  │
+│  • sudo systemctl restart yonned_prod_worker           │
+│  • curl -s http://127.0.0.1:8000/health (Doğrulama)    │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -115,13 +147,18 @@ Sistemde yerel ortamda test koşumu yapılmaz; tüm doğrulama gerçek Linux ort
 
 ## 5. SUNUCU ÇALIŞMA KURALLARI VE DİZİN STANDARDI
 
-1. **Sunucu Kök Dizini:**  
-   Tüm sunucularda (`node102`, `node103`, `node104`) kod tabanı daima **/var/www/yonned.com/** dizini altında barındırılır.
+1. **Sunucu Kök Dizinleri (`node102`):**  
+   * Üretim Ortamı: `/var/www/yonned.com/` (`yonned_prod`)
+   * Staging Ortamı: `/var/www/staging.yonned.com/` (`yonned_staging`)
 2. **Kalıcı İzinler ve İzolasyon:**  
-   * Kod dizini `yonned:yonned` (veya `www-data`) kullanıcısına aittir.
-   * `.env` dosyası asla git'e gönderilmez; sunucuda `chmod 600` ile korunur.
+   * Kod dizinleri `tucibeyin:tucibeyin` kullanıcısına aittir (mod 755).
+   * `.env` dosyaları asla git'e gönderilmez; sunucuda `chmod 600` ile korunur.
+   * `yonned_staging` veritabanı kullanıcısının `yonned_prod_db`'ye `CONNECT` yetkisi PostgreSQL çekirdeğinde kesin olarak iptal edilmiştir.
 3. **Rollback (Geri Alma) Güvencesi:**  
-   Olası bir arıza durumunda `node103` üzerinde test edilmemiş hiçbir kod `node102` canlı sunucusuna alınamaz. Üretimde sorun çıkarsa tek bir komutla önceki commit'e dönülür:
+   Olası bir arıza durumunda `staging` üzerinde doğrulanmamış hiçbir kod canlıya alınamaz. Üretimde acil geri alma gerekirse:
    ```bash
-   git reset --hard HEAD~1 && sudo systemctl restart yonned-api
+   cd /var/www/yonned.com
+   git reset --hard HEAD~1
+   sudo systemctl restart yonned_prod_api yonned_prod_critical_worker yonned_prod_worker
    ```
+

@@ -151,32 +151,35 @@ Mobil kameradan gelen tek bir ham metin / QR string'i backend tarafından anınd
 
 ---
 
-## 6. TESTLERİN ÇALIŞTIRILMASI VE DOĞRULAMA (NODE103 STAGING RUNNER)
+## 6. TESTLERİN ÇALIŞTIRILMASI VE DOĞRULAMA (NODE102 STAGING RUNNER)
 
-Yerel geliştirme ortamında (localhost) test koşumu **yapılmaz**. Tüm birim, entegrasyon ve yük testleri doğrudan **`node103` (Standalone Staging Node: `185.205.194.236`)** üzerinde, gerçek Debian 13 işletim sistemi, yerel PostgreSQL 17 ve Redis 7 servisleri ile koşturulur.
+Yerel geliştirme ortamında (localhost) test koşumu **yapılmaz**. Tüm birim, entegrasyon ve yük testleri ADR-002 kapsamında **`node102` üzerindeki izole Staging Ortamında (`/var/www/staging.yonned.com`)**, gerçek Debian 13 işletim sistemi, `yonned_staging_db` (PostgreSQL 17) ve `yonned_staging_redis` (Port 6380) servisleri ile koşturulur.
 
-### node103 Üzerinde Test Koşum Adımları:
+### node102 Staging Üzerinde Test Koşum Adımları (ADR Adım 3 & 4):
 ```bash
-# 1. SSH ile Staging Düğümüne Bağlan
-ssh node103
+# 1. SSH ile Ana Düğüme Bağlan
+ssh node102
 
-# 2. En son kodu çek ve sanal ortamı aktif et
-cd /var/www/yonned.com
+# 2. Staging dizinine gir, en son kodu çek
+cd /var/www/staging.yonned.com
 git pull origin main
+
+# 3. Sanal ortamı aktif et ve bağımlılıkları doğrula
 source backend/venv/bin/activate
 pip install -r backend/requirements.txt
 
-# 3. Staging Veritabanı Göçlerini (Alembic) Uygula
+# 4. Staging Veritabanı Göçlerini (Alembic) Uygula
+cd backend
 alembic upgrade head
 
-# 4. Tüm Test Bataryasını Çalıştır
-pytest tests/ -v --asyncio-mode=auto
+# 5. Tüm Test Bataryasını Çalıştır (ADR 4. Adım: Test Onay)
+pytest tests/ -v
 
-# 5. E2E Sıfır Blokaj ve Kaza Senaryolarını Çalıştır
+# 6. E2E Sıfır Blokaj ve Kaza Senaryolarını Çalıştır
 pytest tests/e2e/test_zero_blockage_accident.py -v
 
-# 6. Test Kapsama (Coverage) Raporu Al
+# 7. Test Kapsama (Coverage) Raporu Al
 pytest --cov=app --cov-report=term-missing tests/
 ```
 
-Her canlıya çıkış öncesinde bu test bataryası `node103` üzerinde %100 yeşil olmak zorundadır.
+> **Bağlayıcı Kural:** Her canlıya çıkış öncesinde bu test bataryası `node102` Staging ortamında **%100 yeşil** olmak zorundadır. Onay alınmadan Adım 5 (Dokümantasyon Güncelleme) ve Adım 6-7 (Prod Dağıtımı) adımlarına geçilemez.

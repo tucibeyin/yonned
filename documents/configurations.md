@@ -15,16 +15,16 @@ Tüm kayıtlarda Cloudflare Proxy (Turuncu Bulut) **ZORUNLUDUR**:
 
 | Kayıt Tipi | İsim / Host | Hedef / Değer | Proxy Durumu | Açıklama |
 | :--- | :--- | :--- | :---: | :--- |
-| **`A`** | `yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Ana portal ve web arayüzü |
-| **`A`** | `api.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Üretim FastAPI REST Servisi |
-| **`A`** | `ws.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Canlı WebSocket Akışı |
-| **`A`** | `staging.yonned.com` | `185.205.194.236` (`node103`) | ☁️ Proxied | Bağımsız Staging Web Arayüzü |
-| **`A`** | `staging-api.yonned.com` | `185.205.194.236` (`node103`) | ☁️ Proxied | Staging Test API Servisi |
+| **`A`** | `yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Ana portal ve web arayüzü (Port 8000) |
+| **`A`** | `api.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Canlı FastAPI REST Servisi (Port 8000) |
+| **`A`** | `ws.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Canlı WebSocket Akışı (Port 8000) |
+| **`A`** | `staging.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging Web Arayüzü (Port 8001) |
+| **`A`** | `staging-api.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging Test API Servisi (Port 8001) |
 | **`CNAME`** | `www.yonned.com` | `yonned.com` | ☁️ Proxied | www ana domaine yönlendirme |
 
 ### 1.2. SSL / TLS Şifreleme Modu
 * **SSL/TLS Encryption Mode:** **`Full (Strict)`**
-  * Neden Full (Strict)? İstemci-Cloudflare arası değil, Cloudflare ile `node102`/`node103` arasındaki trafik de uçtan uca TLS ile şifrelenir (Man-in-the-Middle saldırısı imkansızlaşır).
+  * Neden Full (Strict)? İstemci-Cloudflare arası değil, Cloudflare ile `node102` arasındaki trafik de uçtan uca TLS ile şifrelenir (Man-in-the-Middle saldırısı imkansızlaşır).
 * **Cloudflare Origin CA Sertifikası (15 Yıllık Kusursuz Çözüm):**
   * Let's Encrypt / Certbot 3 ayda bir yenilenme hatalarına ve cron arızalarına tabidir.
   * Bunun yerine Cloudflare Dashboard üzerinden üretilen **15 yıllık Origin CA Sertifikası** Nginx sunucusuna kurulur (`/etc/ssl/certs/yonned.origin.pem` ve `/etc/ssl/private/yonned.origin.key`).
@@ -42,7 +42,7 @@ Tüm kayıtlarda Cloudflare Proxy (Turuncu Bulut) **ZORUNLUDUR**:
 * **Security Level:** `Medium`
 * **Bot Fight Mode:** `ON` (Otomatik kötü niyetli botları ve veri kazıyıcıları engeller).
 * **DDoS Koruması:** Cloudflare Anycast altyapısı L3/L4 ve L7 saldırılarını otomatik emer.
-* **Origin IP Maskeleme:** Gerçek sunucu IP'leri (`185.205.194.173` ve `185.205.194.236`) gizlenir. Dışarıdan gelen doğrudan IP taramaları Nginx seviyesinde reddedilir.
+* **Origin IP Maskeleme:** Gerçek sunucu IP'leri gizlenir. Dışarıdan gelen doğrudan IP taramaları Nginx seviyesinde reddedilir.
 
 ### 1.5. Nginx Tarafında Cloudflare Gerçek IP Çözümleme (Real IP Restoration)
 Cloudflare vekil görevi gördüğü için Nginx loglarında ve CrowdSec'te müşterinin gerçek IP'sini (`CF-Connecting-IP`) görebilmek için `/etc/nginx/conf.d/cloudflare-real-ip.conf` yapılandırması kullanılır:
@@ -73,9 +73,9 @@ real_ip_header CF-Connecting-IP;
 
 | Sunucu Adı | IP Adresi | Donanım (vCPU / RAM / Disk / Port) | Rol ve Servisler | Durum |
 | :--- | :---: | :--- | :--- | :---: |
-| **`node102`** | `185.205.194.173` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Üretim (Production):** Compute, PostgreSQL 17, Redis 7, FastAPI, Nginx, CrowdSec | Aktif |
-| **`node103`** | `185.205.194.236` | 3 vCPU / 8 GB RAM / 80 GB SSD / 10 Gbps | **Staging (Laboratuvar):** Tam bağımsız hepsi-bir-arada test ortamı (DB, Redis, API, Test Koşumu) | Aktif |
-| **`node104`** | `82.39.86.94` | 2 vCPU / 3 GB RAM / 10 GB OS + 1 TB HDD / 1 Gbps | **Medya Deposu (Storage):** MinIO S3 Nesne Depolama (`/mnt/data`), Veritabanı Yedek Arşivi | Aktif |
+| **`node102`** | `185.205.194.173` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Ana Hesaplama & Veri Düğümü (Compute & DB):**<br>• `yonned_prod` (Port 8000, PostgreSQL `yonned_prod_db`, Redis Port 6379)<br>• `yonned_staging` (Port 8001, PostgreSQL `yonned_staging_db`, Redis Port 6380)<br>• Nginx, CrowdSec, nftables | **Aktif (Çift Ortam)** |
+| **`node104`** | `82.39.86.94` | 2 vCPU / 3 GB RAM / 10 GB OS + 1 TB HDD / 1 Gbps | **Medya Kasası (Storage Vault):**<br>• MinIO S3 (`/mnt/data/minio`)<br>• Bucket: `yonned-prod-media` & `yonned-staging-media`<br>• Veritabanı Arşiv Yedekleri | **Aktif** |
+| **`node103`** | `185.205.194.236` | 3 vCPU / 8 GB RAM / 80 GB SSD / 10 Gbps | **Stratejik Yedek / İzleme (Standby & Replica):**<br>• PostgreSQL Streaming Replica (Felaket Kurtarma - DR)<br>• Prometheus + Grafana + Loki İzleme Stack'i | **Hazır / Standby** |
 
 ---
 
@@ -188,64 +188,84 @@ sudo DEBIAN_FRONTEND=noninteractive apt update && sudo apt install -y \
 
 ## 8. SERVİS PORT VE GÜVENLİK DAĞILIMI
 
-* **Ters Vekil (Nginx):** Port 80 (HTTP $\rightarrow$ HTTPS) ve Port 443 (HTTPS TLS 1.3).
-* **Uvicorn / FastAPI:** Yalnızca `127.0.0.1:8000` (Dışarıya tamamen kapalı).
-* **PostgreSQL 17:** Yalnızca `127.0.0.1:5432` (Dışarıya tamamen kapalı).
-* **Redis 7:** Yalnızca `127.0.0.1:6379` (Dışarıya tamamen kapalı).
-* **MinIO S3 (`node104`):** Port 9000 (Sadece yetkili API IP'lerine açık).
+* **Ters Vekil (Nginx - `node102`):** Port 80 (HTTP $\rightarrow$ HTTPS) ve Port 443 (HTTPS TLS 1.3).
+* **Canlı API (yonned_prod):** `127.0.0.1:8000` (Nginx `api.yonned.com` ve `yonned.com` arkasında).
+* **Staging API (yonned_staging):** `127.0.0.1:8001` (Nginx `staging-api.yonned.com` arkasında).
+* **PostgreSQL 17 (`node102`):** `127.0.0.1:5432` (`yonned_prod_db` ve `yonned_staging_db`).
+* **Redis Prod (`node102`):** `127.0.0.1:6379` (`yonned_prod_redis`).
+* **Redis Staging (`node102`):** `127.0.0.1:6380` (`yonned_staging_redis`).
+* **MinIO S3 (`node104`):** Port 9000 (Sadece yetkili API IP'lerine açık - `yonned-prod-media` & `yonned-staging-media`).
 
 ---
 
-## 9. SYSTEMD SERVİS MİMARİSİ VE UVICORN YÖNETİMİ
+## 9. SYSTEMD SERVİS MİMARİSİ VE STANDART İSİMLENDİRME
 
-Yonned API servisi, container soyutlamaları olmadan doğrudan Linux `systemd` servisi olarak `/etc/systemd/system/yonned-api.service` dosyasında tanımlanmıştır:
+Tüm servisler, API'ler ve arkaplan worker'ları doğrudan Linux `systemd` servisi olarak konuşlandırılmıştır:
 
-```ini
-[Unit]
-Description=Yonned Backend FastAPI ASGI Service
-After=network.target postgresql.service redis-server.service
-Wants=postgresql.service redis-server.service
+### 9.1. Üretim Servisleri (`yonned_prod`)
+| Servis Dosyası | Açıklama | Port / Süreç | Kaynak Limiti |
+| :--- | :--- | :--- | :--- |
+| **`yonned_prod_api.service`** | FastAPI ASGI Web & REST API | Port `8000` (4 Workers) | Sınırsız / Tam Kapasite |
+| **`yonned_prod_critical_worker.service`** | Acil durum, SMS/OTP, kritik kuyruk | Async Python Worker | Öncelikli Süreç |
+| **`yonned_prod_worker.service`** | Medya işleme, raporlama, arşiv | Async Python Worker | Standart Süreç |
+| **`yonned_prod_redis.service`** | Canlı Cache & PubSub | Port `6379` | Sistem Varsayılanı |
 
-[Service]
-Type=simple
-User=tucibeyin
-Group=tucibeyin
-WorkingDirectory=/var/www/yonned.com/backend
-EnvironmentFile=/var/www/yonned.com/backend/.env
-ExecStart=/var/www/yonned.com/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
-Restart=always
-RestartSec=5s
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
-```
+### 9.2. Staging Servisleri (`yonned_staging`)
+| Servis Dosyası | Açıklama | Port / Süreç | Kaynak Limiti |
+| :--- | :--- | :--- | :--- |
+| **`yonned_staging_api.service`** | Staging Test API Servisi | Port `8001` (2 Workers) | `MemoryMax=2G`, `CPUQuota=80%` |
+| **`yonned_staging_critical_worker.service`** | Staging acil durum kuyruk testleri | Async Python Worker | `MemoryMax=1G`, `CPUQuota=50%` |
+| **`yonned_staging_worker.service`** | Staging genel görev kuyruğu | Async Python Worker | `MemoryMax=1G`, `CPUQuota=50%` |
+| **`yonned_staging_redis.service`** | Staging Cache & PubSub | Port `6380` | `maxmemory 512mb` |
 
 * **Yönetim Komutları:**
   ```bash
-  # Servisi başlat / durdur / yeniden başlat
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now yonned-api
-  sudo systemctl restart yonned-api
-  sudo systemctl status yonned-api
+  # Canlı servisleri yönet
+  sudo systemctl restart yonned_prod_api yonned_prod_critical_worker yonned_prod_worker
+  sudo systemctl status 'yonned_prod_*'
 
-  # Canlı log akışını izle
-  sudo journalctl -u yonned-api -f --no-pager
+  # Staging servislerini yönet
+  sudo systemctl restart yonned_staging_api yonned_staging_critical_worker yonned_staging_worker yonned_staging_redis
+  sudo systemctl status 'yonned_staging_*'
+
+  # Canlı log takibi
+  sudo journalctl -u yonned_prod_api -f --no-pager
+  sudo journalctl -u yonned_staging_api -f --no-pager
   ```
 
 ---
 
 ## 10. DOĞRULAMA VE SAĞLIK KONTROLLERİ (HEALTH CHECK)
 
-* **Yerel Sağlık Kontrolü:**
+* **Canlı ve Staging Sağlık Kontrolleri:**
   ```bash
+  # Üretim Sağlık Ucu (Port 8000)
   curl -s http://127.0.0.1:8000/health
-  # Yanıt: {"status":"healthy","service":"yonned-api","environment":"production","version":"1.0.0"}
+  # Çıktı: {"status":"healthy","service":"yonned-api","environment":"production","version":"1.0.0"}
+
+  # Staging Sağlık Ucu (Port 8001)
+  curl -s http://127.0.0.1:8001/health
+  # Çıktı: {"status":"healthy","service":"yonned-api","environment":"staging","version":"1.0.0"}
   ```
-* **Veritabanı ve Redis Durum Teyidi:**
+* **Veritabanı İzolasyon Doğrulaması:**
   ```bash
-  PGPASSWORD='yonned_secure_pwd_2026' psql -h 127.0.0.1 -U yonned -d yonned_db -c '\dt'
-  redis-cli ping
+  # Canlı DB kontrolü
+  PGPASSWORD='yonned_secure_pwd_2026' psql -h 127.0.0.1 -U yonned_prod -d yonned_prod_db -c '\dt'
+
+  # Staging DB kontrolü
+  PGPASSWORD='yonned_staging_secret_2026' psql -h 127.0.0.1 -U yonned_staging -d yonned_staging_db -c '\dt'
+
+  # İzolasyon testi: Staging kullanıcısı Canlı DB'ye ERİŞEMEZ (FATAL: permission denied)
+  PGPASSWORD='yonned_staging_secret_2026' psql -h 127.0.0.1 -U yonned_staging -d yonned_prod_db -c '\conninfo'
   ```
+* **Redis İzolasyon Doğrulaması:**
+  ```bash
+  # Üretim Redis (Port 6379)
+  redis-cli -p 6379 ping  # PONG
+
+  # Staging Redis (Port 6380)
+  redis-cli -p 6380 ping  # PONG
+  ```
+
 
 
