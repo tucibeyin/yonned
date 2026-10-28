@@ -194,3 +194,58 @@ sudo DEBIAN_FRONTEND=noninteractive apt update && sudo apt install -y \
 * **Redis 7:** Yalnızca `127.0.0.1:6379` (Dışarıya tamamen kapalı).
 * **MinIO S3 (`node104`):** Port 9000 (Sadece yetkili API IP'lerine açık).
 
+---
+
+## 9. SYSTEMD SERVİS MİMARİSİ VE UVICORN YÖNETİMİ
+
+Yonned API servisi, container soyutlamaları olmadan doğrudan Linux `systemd` servisi olarak `/etc/systemd/system/yonned-api.service` dosyasında tanımlanmıştır:
+
+```ini
+[Unit]
+Description=Yonned Backend FastAPI ASGI Service
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=tucibeyin
+Group=tucibeyin
+WorkingDirectory=/var/www/yonned.com/backend
+EnvironmentFile=/var/www/yonned.com/backend/.env
+ExecStart=/var/www/yonned.com/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
+Restart=always
+RestartSec=5s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+```
+
+* **Yönetim Komutları:**
+  ```bash
+  # Servisi başlat / durdur / yeniden başlat
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now yonned-api
+  sudo systemctl restart yonned-api
+  sudo systemctl status yonned-api
+
+  # Canlı log akışını izle
+  sudo journalctl -u yonned-api -f --no-pager
+  ```
+
+---
+
+## 10. DOĞRULAMA VE SAĞLIK KONTROLLERİ (HEALTH CHECK)
+
+* **Yerel Sağlık Kontrolü:**
+  ```bash
+  curl -s http://127.0.0.1:8000/health
+  # Yanıt: {"status":"healthy","service":"yonned-api","environment":"production","version":"1.0.0"}
+  ```
+* **Veritabanı ve Redis Durum Teyidi:**
+  ```bash
+  PGPASSWORD='yonned_secure_pwd_2026' psql -h 127.0.0.1 -U yonned -d yonned_db -c '\dt'
+  redis-cli ping
+  ```
+
+
