@@ -20,6 +20,7 @@ Tüm kayıtlarda Cloudflare Proxy (Turuncu Bulut) **ZORUNLUDUR**:
 | **`A`** | `ws.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Canlı WebSocket Akışı (Port 8000) |
 | **`A`** | `staging.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging Web Arayüzü (Port 8001) |
 | **`A`** | `staging-api.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging Test API Servisi (Port 8001) |
+| **`A`** | `staging-ws.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging WebSocket Akışı (Port 8001) |
 | **`CNAME`** | `www.yonned.com` | `yonned.com` | ☁️ Proxied | www ana domaine yönlendirme |
 
 ### 1.2. SSL / TLS Şifreleme Modu
