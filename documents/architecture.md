@@ -48,7 +48,7 @@ Sistem; donanım verimliliği ve kaynak izolasyonu için **Tek Sunucuda Çift Or
                    ▼ (Full Strict TLS)
 ┌────────────────────────────────────────────────────────────────────────┐
 │ KATMAN 2: NODE102 - HESAPLAMA VE VERİ MERKEZİ (COMPUTE & DB)           │
-│ • IP: 185.205.194.173 | 3 vCPU | 9 GB RAM | 80 GB SSD | Debian 13      │
+│ • IP: 185.205.194.232 | 3 vCPU | 9 GB RAM | 80 GB SSD | Debian 13      │
 │ • 🛡️ CrowdSec + nftables L3/L4 Çekirdek Güvenliği                      │
 │ • 🌐 Nginx Ters Vekil (Port 80/443 -> Port 8000 & 8001)                │
 │                                                                        │
@@ -83,7 +83,7 @@ Sistem; donanım verimliliği ve kaynak izolasyonu için **Tek Sunucuda Çift Or
 
 | Sunucu | Rol | IP | vCPU / RAM / Disk | Dışa Açık Servisler |
 | :--- | :--- | :---: | :---: | :--- |
-| **`node102`** | Compute & DB (`prod` + `staging`) | `185.205.194.173` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx) |
+| **`node102`** | Compute & DB (`prod` + `staging`) | `185.205.194.232` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx) |
 | **`node104`** | Object Storage Vault | `82.39.86.94` | 2 vCPU / 3 GB / 1 TB HDD | Port 22 (SSH), 9000 (MinIO - kısıtlı) |
 
 ---

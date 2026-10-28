@@ -15,20 +15,19 @@ Tüm kayıtlarda Cloudflare Proxy (Turuncu Bulut) **ZORUNLUDUR**:
 
 | Kayıt Tipi | İsim / Host | Hedef / Değer | Proxy Durumu | Açıklama |
 | :--- | :--- | :--- | :---: | :--- |
-| **`A`** | `yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Ana portal ve web arayüzü (Port 8000) |
-| **`A`** | `api.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Canlı FastAPI REST Servisi (Port 8000) |
-| **`A`** | `ws.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Canlı WebSocket Akışı (Port 8000) |
-| **`A`** | `staging.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging Web Arayüzü (Port 8001) |
-| **`A`** | `staging-api.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging Test API Servisi (Port 8001) |
-| **`A`** | `staging-ws.yonned.com` | `185.205.194.173` (`node102`) | ☁️ Proxied | Staging WebSocket Akışı (Port 8001) |
+| **`A`** | `yonned.com` | `185.205.194.232` (`node102`) | ☁️ Proxied | Ana portal ve web arayüzü (Port 8000) |
+| **`A`** | `api.yonned.com` | `185.205.194.232` (`node102`) | ☁️ Proxied | Canlı FastAPI REST Servisi (Port 8000) |
+| **`A`** | `ws.yonned.com` | `185.205.194.232` (`node102`) | ☁️ Proxied | Canlı WebSocket Akışı (Port 8000) |
+| **`A`** | `staging.yonned.com` | `185.205.194.232` (`node102`) | ☁️ Proxied | Staging Web Arayüzü (Port 8001) |
+| **`A`** | `staging-api.yonned.com` | `185.205.194.232` (`node102`) | ☁️ Proxied | Staging Test API Servisi (Port 8001) |
+| **`A`** | `staging-ws.yonned.com` | `185.205.194.232` (`node102`) | ☁️ Proxied | Staging WebSocket Akışı (Port 8001) |
 | **`CNAME`** | `www.yonned.com` | `yonned.com` | ☁️ Proxied | www ana domaine yönlendirme |
 
 ### 1.2. SSL / TLS Şifreleme Modu
-* **SSL/TLS Encryption Mode:** **`Full (Strict)`**
-  * Neden Full (Strict)? İstemci-Cloudflare arası değil, Cloudflare ile `node102` arasındaki trafik de uçtan uca TLS ile şifrelenir (Man-in-the-Middle saldırısı imkansızlaşır).
-* **Cloudflare Origin CA Sertifikası (15 Yıllık Kusursuz Çözüm):**
-  * Let's Encrypt / Certbot 3 ayda bir yenilenme hatalarına ve cron arızalarına tabidir.
-  * Bunun yerine Cloudflare Dashboard üzerinden üretilen **15 yıllık Origin CA Sertifikası** Nginx sunucusuna kurulur (`/etc/ssl/certs/yonned.origin.pem` ve `/etc/ssl/private/yonned.origin.key`).
+* **SSL/TLS Encryption Mode:** **`Full`**
+  * **İstemci ➔ Cloudflare (Edge):** Cloudflare otomatik olarak Google Trust Services / Let's Encrypt imzalı resmi evrensel sertifika sunar (Tarayıcılarda %100 geçerli yeşil kilit).
+  * **Cloudflare ➔ node102 (Origin):** `node102` üzerinde üretilen **100 Yıllık (2126'ya kadar geçerli) 4096-bit RSA OpenSSL Sertifikası** (`/etc/ssl/certs/yonned.crt` ve `/etc/ssl/private/yonned.key`) kullanılır.
+  * **Sıfır Bakım (Ömür Boyu):** Certbot yenileme hataları, 3 aylık süre dolmaları veya manuel sertifika taşıma zahmeti tamamen sıfırlanmıştır. Uçtan uca trafik kesintisiz şifrelenir.
 * **Minimum TLS Sürümü:** `TLS 1.3` (Eski mobil cihaz fallback için: `TLS 1.2`).
 * **Always Use HTTPS:** `ON` (Tüm HTTP istekleri anında HTTPS'e çevrilir).
 * **Automatic HTTPS Rewrites:** `ON`.
@@ -74,7 +73,7 @@ real_ip_header CF-Connecting-IP;
 
 | Sunucu Adı | IP Adresi | Donanım (vCPU / RAM / Disk / Port) | Rol ve Servisler | Durum |
 | :--- | :---: | :--- | :--- | :---: |
-| **`node102`** | `185.205.194.173` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Ana Hesaplama & Veri Düğümü (Compute & DB):**<br>• `yonned_prod` (Port 8000, PostgreSQL `yonned_prod_db`, Redis Port 6379)<br>• `yonned_staging` (Port 8001, PostgreSQL `yonned_staging_db`, Redis Port 6380)<br>• Nginx, CrowdSec, nftables | **Aktif (Çift Ortam)** |
+| **`node102`** | `185.205.194.232` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Ana Hesaplama & Veri Düğümü (Compute & DB):**<br>• `yonned_prod` (Port 8000, PostgreSQL `yonned_prod_db`, Redis Port 6379)<br>• `yonned_staging` (Port 8001, PostgreSQL `yonned_staging_db`, Redis Port 6380)<br>• Nginx, CrowdSec, nftables | **Aktif (Çift Ortam)** |
 | **`node104`** | `82.39.86.94` | 2 vCPU / 3 GB RAM / 10 GB OS + 1 TB HDD / 1 Gbps | **Medya Kasası (Storage Vault):**<br>• MinIO S3 (`/mnt/data/minio`)<br>• Bucket: `yonned-prod-media` & `yonned-staging-media`<br>• Veritabanı Arşiv Yedekleri | **Aktif** |
 
 ---
