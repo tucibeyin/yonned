@@ -46,7 +46,7 @@ Yonned projesinde üretilen her satır kod aşağıdaki endüstriyel standartlar
   2. **Veritabanları & Roller:** `yonned_prod_db` (`yonned_prod`) $\leftrightarrow$ `yonned_staging_db` (`yonned_staging`).
   3. **Ağ Portları:** Port `8000` (Prod API) $\leftrightarrow$ Port `8001` (Staging API); Port `6379` (Prod Redis) $\leftrightarrow$ Port `6380` (Staging Redis).
   4. **Medya Kasası (`node104`):** `yonned-prod-media` $\leftrightarrow$ `yonned-staging-media`.
-* **Kazanım:** `node103` boşa çıkarılarak felaket kurtarma (PostgreSQL Streaming Replica) veya merkezi izleme (Grafana/Prometheus) gibi stratejik görevlere tahsis edilmiştir.
+* **Kazanım:** Ekstra sunucu ve altyapı maliyeti sıfırlanmış, donanım kaynakları maksimum verimle konsolide edilmiştir.
 
 ---
 

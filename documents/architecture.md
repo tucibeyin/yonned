@@ -32,7 +32,7 @@ Tüm bu varlıklar tek bir ortak CRUD yetki modeliyle yönetilir ve paylaşılı
 
 ## 2. TOPOLOJİ VE DONANIM MİMARİSİ (TOPOLOGY & HARDWARE)
 
-Sistem; üretim ortamında yüksek erişilebilirlik ve kaynak ayrımı için **2 Düğümlü Üretim Mimarisi (Node102 + Node104)** üzerinde, test ve doğrulama için ise tamamen izole **Bağımsız Staging Düğümü (Node103)** üzerinde çalışır.
+Sistem; donanım verimliliği ve kaynak izolasyonu için **Tek Sunucuda Çift Ortam Mimarisi (Node102 Compute & DB)** ve medya depolama için **Node104 Medya Kasası** üzerinde çalışır.
 
 ```
 [ DIŞ DÜNYA: İstemciler ] (Flutter Mobil, Web Admin, Müşteri Tracker)
@@ -43,34 +43,39 @@ Sistem; üretim ortamında yüksek erişilebilirlik ve kaynak ayrımı için **2
 │ • Anycast DNS & Edge Caching                                           │
 │ • DDoS Koruması (L3/L4/L7 saldırı emilimi)                             │
 │ • Full (Strict) SSL Termination & Bot Fight Mode                       │
-└──────────────────┬─────────────────────────────────┬───────────────────┘
-                   │                                 │
-                   ▼ (Üretim Trafiği)                ▼ (Staging / Test Trafiği)
-┌────────────────────────────────────────┐ ┌────────────────────────────────────────┐
-│ KATMAN 2: NODE102 (Production Compute) │ │ KATMAN 4: NODE103 (Standalone Staging) │
-│ • IP: 185.205.194.173                  │ │ • IP: 185.205.194.236                  │
-│ • 3 vCPU | 9 GB RAM | 80 GB SSD        │ │ • 3 vCPU | 8 GB RAM | 80 GB SSD        │
-│ • OS: Debian 13 (Trixie)               │ │ • OS: Debian 13 (Trixie)               │
-│                                        │ │                                        │
-│ 🛡️ CrowdSec + nftables                 │ │ 🧪 TAM BAĞIMSIZ STAGING & TEST ORTAMI: │
-│ 🌐 Nginx + Certbot (SSL)               │ │ ├── PostgreSQL 17 (Staging DB)         │
-│ ⚙️ FastAPI + Redis 7 (Compute & Cache)  │ │ ├── Redis 7 (Staging Soket)            │
-└──────────────────┬─────────────────────┘ │ ├── FastAPI ASGI Service (Port 8000)   │
-                   │                       │ ├── Yerel MinIO S3 (Test Depolama)     │
-                   ▼ Özel S3 (Port 9000)   │ └── Otomatik Pytest & E2E Test Koşumu  │
-┌────────────────────────────────────────┐ └────────────────────────────────────────┘
-│ KATMAN 3: NODE104 (Object Storage)     │
-│ • IP: 82.39.86.94                      │
-│ • 2 vCPU | 3 GB RAM | 1 TB HDD (/mnt)  │
-│ • MinIO S3 Media & Backup Vault        │
-└────────────────────────────────────────┘
+└──────────────────┬─────────────────────────────────────────────────────┘
+                   │
+                   ▼ (Full Strict TLS)
+┌────────────────────────────────────────────────────────────────────────┐
+│ KATMAN 2: NODE102 - HESAPLAMA VE VERİ MERKEZİ (COMPUTE & DB)           │
+│ • IP: 185.205.194.173 | 3 vCPU | 9 GB RAM | 80 GB SSD | Debian 13      │
+│ • 🛡️ CrowdSec + nftables L3/L4 Çekirdek Güvenliği                      │
+│ • 🌐 Nginx Ters Vekil (Port 80/443 -> Port 8000 & 8001)                │
+│                                                                        │
+│ ┌──────────────────────────────────┐ ┌───────────────────────────────┐ │
+│ │  ÜRETİM ORTAMI (yonned_prod)     │ │  STAGING ORTAMI (yonned_staging)│ │
+│ │  • Port: 8000 (4 Workers)        │ │  • Port: 8001 (2 Workers)     │ │
+│ │  • Dizin: /var/www/yonned.com/   │ │  • Dizin: /var/www/staging... │ │
+│ │  • DB: yonned_prod_db (5432)     │ │  • DB: yonned_staging_db(5432)│ │
+│ │  • Redis: Port 6379              │ │  • Redis: Port 6380 (512MB)   │ │
+│ │  • Critical Worker & Worker      │ │  • Critical Worker & Worker   │ │
+│ └──────────────────────────────────┘ └───────────────────────────────┘ │
+└──────────────────┬─────────────────────────────────────────────────────┘
+                   │
+                   ▼ Port 9000 (MinIO S3)
+┌────────────────────────────────────────────────────────────────────────┐
+│ KATMAN 3: NODE104 (Object Storage)                                     │
+│ • IP: 82.39.86.94 | 2 vCPU | 3 GB RAM | 1 TB HDD (/mnt/data)          │
+│ • MinIO S3 Server (:9000 & :9001)                                      │
+│ • Buckets: yonned-prod-media & yonned-staging-media                    │
+│ • Veritabanı Otomatik Arşiv Yedekleri                                  │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Donanım Dağılımı ve Sunucu Rolleri:
 1. **`node102` (Ana Hesaplama & Veri Düğümü):** Canlı (`yonned_prod`) ve Test (`yonned_staging`) ortamlarını tek çatı altında %100 izole süreçlerle çalıştıran ana sunucu.
 2. **`node104` (Üretim & Staging Medya Kasası):** 1 TB HDD üzerinde MinIO S3 nesne depolama kasası (`/mnt/data/minio`) ve arşivler.
-3. **`node103` (Stratejik Yedek & İzleme Düğümü):** Canlı veritabanı kopyasını (Hot Standby Replica) ve tüm sunucuların telemetri/log izleme stack'ini (Prometheus/Grafana) barındıran felaket kurtarma düğümü.
-4. **`node101` & `node105`:** Serbest bekleme düğümleri.
+3. **`node101` & `node105`:** Serbest bekleme düğümleri.
 
 ### Geliştirme ve Kodlama Dili Standardı:
 * **Kod Dili:** %100 **İngilizce** (Değişkenler, fonksiyonlar, sınıf adları, tablo ve sütun adları, API endpoint'leri).
@@ -80,7 +85,6 @@ Sistem; üretim ortamında yüksek erişilebilirlik ve kaynak ayrımı için **2
 | :--- | :--- | :---: | :---: | :--- |
 | **`node102`** | Compute & DB (`prod` + `staging`) | `185.205.194.173` | 3 vCPU / 9 GB / 80 GB SSD | Port 22 (SSH), 80/443 (Nginx) |
 | **`node104`** | Object Storage Vault | `82.39.86.94` | 2 vCPU / 3 GB / 1 TB HDD | Port 22 (SSH), 9000 (MinIO - kısıtlı) |
-| **`node103`** | Standby Replica & İzleme | `185.205.194.236` | 3 vCPU / 8 GB / 80 GB SSD | Port 22 (SSH), 3000 (Grafana) |
 
 ---
 

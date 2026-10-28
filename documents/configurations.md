@@ -75,7 +75,6 @@ real_ip_header CF-Connecting-IP;
 | :--- | :---: | :--- | :--- | :---: |
 | **`node102`** | `185.205.194.173` | 3 vCPU / 9 GB RAM / 80 GB SSD / 10 Gbps | **Ana Hesaplama & Veri Düğümü (Compute & DB):**<br>• `yonned_prod` (Port 8000, PostgreSQL `yonned_prod_db`, Redis Port 6379)<br>• `yonned_staging` (Port 8001, PostgreSQL `yonned_staging_db`, Redis Port 6380)<br>• Nginx, CrowdSec, nftables | **Aktif (Çift Ortam)** |
 | **`node104`** | `82.39.86.94` | 2 vCPU / 3 GB RAM / 10 GB OS + 1 TB HDD / 1 Gbps | **Medya Kasası (Storage Vault):**<br>• MinIO S3 (`/mnt/data/minio`)<br>• Bucket: `yonned-prod-media` & `yonned-staging-media`<br>• Veritabanı Arşiv Yedekleri | **Aktif** |
-| **`node103`** | `185.205.194.236` | 3 vCPU / 8 GB RAM / 80 GB SSD / 10 Gbps | **Stratejik Yedek / İzleme (Standby & Replica):**<br>• PostgreSQL Streaming Replica (Felaket Kurtarma - DR)<br>• Prometheus + Grafana + Loki İzleme Stack'i | **Hazır / Standby** |
 
 ---
 
