@@ -13,13 +13,13 @@ if TYPE_CHECKING:
 
 class Vasif(Base, UUIDMixin, TimestampMixin):
     """
-    VASIF / ASSET SHARE (The Universal Permission Grant Contract).
+    VASIF / ASSET SHARE (The Universal CRUD Permission Contract).
     Bir Varlık Sahibi (İnsan), varlığını dilediği başka bir İnsanla paylaşır.
-    Yetkiler birbirinden bağımsız 4 temel fiilden ibarettir:
-    1. Görüntüle (can_view)
-    2. Değiştir / Güncelle (can_edit)
-    3. Ekle (can_add)
-    4. Sil (can_delete)
+    Yetkiler birbirinden bağımsız 4 temel CRUD fiilinden ibarettir:
+    1. can_create: Ekle / Yeni süreç, alt mekan, sarf veya kayıt oluşturabilme
+    2. can_read:   Oku / Varlık durumunu, canlı takibi, geçmişi ve fotoğrafları görüntüleyebilme
+    3. can_update: Güncelle / Var olan süreç notlarını, durumları veya varlık detaylarını değiştirebilme
+    4. can_delete: Sil / Varlığı, süreci veya kaydı iptal edebilme/silebilme
     """
     __tablename__ = "asset_shares"
     __table_args__ = (
@@ -39,10 +39,10 @@ class Vasif(Base, UUIDMixin, TimestampMixin):
         nullable=False
     )
 
-    # 4 Atomic Verbs:
-    can_view: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    can_edit: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    can_add: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # 4 Atomic CRUD Verbs:
+    can_create: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    can_read: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    can_update: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     can_delete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
@@ -52,5 +52,9 @@ class Vasif(Base, UUIDMixin, TimestampMixin):
     def __repr__(self) -> str:
         return (
             f"<Vasif asset_id={self.asset_id} person_id={self.shared_with_person_id} "
-            f"V={int(self.can_view)} E={int(self.can_edit)} A={int(self.can_add)} D={int(self.can_delete)}>"
+            f"C={int(self.can_create)} R={int(self.can_read)} U={int(self.can_update)} D={int(self.can_delete)}>"
         )
+
+
+# English alias
+AssetShare = Vasif

@@ -4,10 +4,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class VasifBase(BaseModel):
-    can_view: bool = Field(True, description="Görüntüle")
-    can_edit: bool = Field(False, description="Değiştir / Güncelle")
-    can_add: bool = Field(False, description="Ekle (Yeni süreç, acil müdahale, sarf)")
-    can_delete: bool = Field(False, description="Sil (Kayıt, süreç veya varlık kaldırma)")
+    can_create: bool = Field(False, description="Oluştur / Ekle (Create)")
+    can_read: bool = Field(True, description="Görüntüle / Oku (Read)")
+    can_update: bool = Field(False, description="Güncelle / Değiştir (Update)")
+    can_delete: bool = Field(False, description="Sil / Kaldır (Delete)")
 
 
 class VasifCreate(VasifBase):

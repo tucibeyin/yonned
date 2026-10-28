@@ -42,17 +42,17 @@ Yonned platformunda kalite kontrolü; geleneksel basit "happy-path" senaryoları
   2. `test_durational_process_calculation`: `started_at` 10:00 ve `ended_at` 10:45 olan bir operasyonun `duration_seconds` değeri tam 2700 saniye (45 dk) olarak hesaplanmalıdır.
   3. `test_parallel_subprocesses`: Bir ana süreç (`parent_id`) altında eşzamanlı iki alt süreç (Örn: Tıraş ve Tırnak Kesimi) birbirini kilitlemeden aynı anda `running` statüsünde kalabilmelidir.
 
-### 2.3. Evrensel 4 Fiil İzin Matrisi Motoru (4-Verb Permission Engine)
-* **Amaç:** `asset_shares` tablosundaki 4 bağımsız kutucuğun yetki çözümlemesini doğrulamak.
+### 2.3. Evrensel CRUD İzin Matrisi Motoru (CRUD Permission Engine)
+* **Amaç:** `asset_shares` tablosundaki 4 bağımsız CRUD kutucuğunun yetki çözümlemesini doğrulamak.
 * **Test Senaryoları:**
 
-| Rol / Kişi | can_view | can_edit | can_add | can_delete | Beklenen Davranış |
+| Rol / Kişi | can_create | can_read | can_update | can_delete | Beklenen Davranış |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Tam Sahip (Owner)** | ✅ | ✅ | ✅ | ✅ | Her işlemi yapar, varlığı başkalarıyla paylaşabilir. |
+| **Tam Sahip (Owner)** | ✅ | ✅ | ✅ | ✅ | Her işlemi yapar (C-R-U-D), varlığı başkalarıyla paylaşabilir. |
 | **Eş / Tam Ortak** | ✅ | ✅ | ✅ | ✅ | Tüm süreçleri yönetir, silebilir, günceller. |
 | **Saha Hekimi / Usta** | ✅ | ✅ | ✅ | ❌ | Yeni süreç açar, notları günceller; fakat kaydı silemez. |
-| **Stajyer / Çırak** | ✅ | ❌ | ✅ | ❌ | Süreçleri görür, yeni not/olay ekler; geçmişi değiştiremez/silemez. |
-| **Müşteri / Takipçi** | ✅ | ❌ | ❌ | ❌ | Sadece kendi varlığının canlı durumunu izler, müdahale edemez. |
+| **Stajyer / Çırak** | ✅ | ✅ | ❌ | ❌ | Süreçleri görür, yeni not/olay ekler; geçmişi değiştiremez/silemez. |
+| **Müşteri / Takipçi** | ❌ | ✅ | ❌ | ❌ | Sadece kendi varlığının canlı durumunu izler, müdahale edemez. |
 | **Yetkisiz Yabancı** | ❌ | ❌ | ❌ | ❌ | `403 Forbidden` veya `404 Not Found` alır. |
 
 ---
@@ -115,14 +115,14 @@ Mobil kameradan gelen tek bir ham metin / QR string'i backend tarafından anınd
 7. Tıraş süreci kaldığı yerden devam ettirilir (`running`).
 8. **Beklenen Sonuç:** Operatör asla hata penceresine takılmaz; hastanın hayatı ve operasyon bürokrasiye kurban gitmez.
 
-### Senaryo C: 4 Fiil İzin Matrisiyle Güvenli Paylaşım
+### Senaryo C: CRUD İzin Matrisiyle Güvenli Paylaşım
 1. **İşletme İçi Delegasyon:**
-   * Patron (Dr. Hasan) yeni stajyer Özge'ye kliniği paylaşır: `can_view=True, can_add=True, can_edit=False, can_delete=False`.
-   * Stajyer Özge yeni muayene kaydı açabilir (`can_add=True`), hasta durumunu görebilir (`can_view=True`).
-   * Stajyer Özge geçmiş 10 yıllık tahlil sonucunu değiştirmeye çalıştığında `403 Edit Forbidden` alır.
+   * Patron (Dr. Hasan) yeni stajyer Özge'ye kliniği paylaşır: `can_read=True, can_create=True, can_update=False, can_delete=False`.
+   * Stajyer Özge yeni muayene kaydı açabilir (`can_create=True`), hasta durumunu görebilir (`can_read=True`).
+   * Stajyer Özge geçmiş 10 yıllık tahlil sonucunu değiştirmeye çalıştığında `403 Update Forbidden` alır.
    * Stajyer Özge bir ameliyat kaydını silmeye çalıştığında `403 Delete Forbidden` alır.
 2. **Müşteri İçi Delegasyon:**
-   * Araç sahibi Mehmet Bey arabasını servise bırakır. Takip ekranını eşine paylaşır (`can_view=True`). Eşi arabanın takibini canlı izler ama tamirciye yanlışlıkla servis iptali veremez.
+   * Araç sahibi Mehmet Bey arabasını servise bırakır. Takip ekranını eşine paylaşır (`can_read=True`). Eşi arabanın takibini canlı izler ama tamirciye yanlışlıkla servis iptali veremez.
 
 ### Senaryo D: Mülkiyetin Değişmezliği ve Zilyetlik İzolasyonu (Ownership Invariance)
 1. **Giriş:** Ali Bey köpeği Karabaş'ı (`owner_person_id = Ali`) kliniğe bırakır.

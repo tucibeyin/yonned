@@ -25,16 +25,16 @@ async def create_asset(
     Eğer müşteri kendi varlığını (kedi, araba) ekliyorsa, owner_person_id otomatik kendi ID'si olur.
     """
     if payload.parent_id:
-        has_add_perm = await PermissionService.check_permission(
+        has_create_perm = await PermissionService.check_permission(
             db=db,
             asset_id=payload.parent_id,
             person_id=current_person.id,
-            verb="add"
+            verb="create"
         )
-        if not has_add_perm:
+        if not has_create_perm:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bu üst varlık altına yeni varlık ekleme yetkiniz (can_add) bulunmuyor."
+                detail="Bu üst varlık altına yeni varlık ekleme yetkiniz (can_create) bulunmuyor."
             )
 
     owner_id = payload.owner_person_id
@@ -67,17 +67,17 @@ async def get_asset(
     current_person: Person = Depends(get_current_person),
     db: AsyncSession = Depends(get_db)
 ):
-    """Varlık detayını döner (can_view yetkisi kontrol edilir)."""
-    has_view = await PermissionService.check_permission(
+    """Varlık detayını döner (can_read yetkisi kontrol edilir)."""
+    has_read = await PermissionService.check_permission(
         db=db,
         asset_id=asset_id,
         person_id=current_person.id,
-        verb="view"
+        verb="read"
     )
-    if not has_view:
+    if not has_read:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bu varlığı görüntüleme yetkiniz (can_view) bulunmuyor."
+            detail="Bu varlığı görüntüleme yetkiniz (can_read) bulunmuyor."
         )
 
     stmt = select(Asset).where(Asset.id == asset_id, Asset.is_active.is_(True))

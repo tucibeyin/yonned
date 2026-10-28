@@ -22,11 +22,11 @@ Fiziksel dünyadaki tüm işletme operasyonları ve varlık ilişkileri tek ve s
 2. **SÜREÇ ASETİ (Temporal Asset / Process):** Zaman boyutunda yaşayan varlıklar (Ameliyat, Bakım, Tıraş, Muayene). Başlangıcı, bitişi, durumu, fotoğrafları ve alt adımları vardır.
 3. **İNSAN / AKTÖR (Human Asset / Person):** Sisteme kimlik doğrulamasıyla (Auth/JWT) bağlanan bilinç; işletme açısından ise yetkinlik ve çalışma kapasitesi.
 
-Tüm bu varlıklar tek bir ortak yetki modeliyle yönetilir ve paylaşılır:
-* **1. GÖRÜNTÜLE (`can_view`):** Varlığı, konumunu ve üzerinde yürüyen süreçleri/geçmişi izleme yetkisi.
-* **2. DEĞİŞTİR (`can_edit`):** Süreç notlarını, varlık bilgilerini veya detayları güncelleme yetkisi.
-* **3. EKLE (`can_add`):** Varlık üzerinde yeni süreç başlatma, sarf/ilaç ekleme veya alt varlık tanımlama yetkisi.
-* **4. SİL (`can_delete`):** Varlığı veya süreci arşivleme/silme yetkisi.
+Tüm bu varlıklar tek bir ortak CRUD yetki modeliyle yönetilir ve paylaşılır:
+* **C - Create (`can_create`):** Varlık üzerinde yeni süreç başlatma, acil müdahale açma, sarf tüketimi girme veya alt varlık tanımlama yetkisi.
+* **R - Read (`can_read`):** Varlığı, anlık konumunu ve üzerinde yürüyen tüm süreç/oturum kayıtlarını, fotoğrafları izleme yetkisi.
+* **U - Update (`can_update`):** Süreç notlarını, durumları, aşamaları veya varlık bilgilerini güncelleme yetkisi.
+* **D - Delete (`can_delete`):** Varlığı, süreci veya kaydı arşivleme/silme yetkisi.
 
 ---
 
@@ -151,12 +151,12 @@ Sistemdeki tüm nesneler, aktörler ve eylemler "Cümlenin Öğeleri" kuralıyla
   * *Kalıcı Mülkiyet (Persistent Ownership):* Kedi Tarçın'ın veya BMW aracın sahibi daima müşteridir (`owner_person_id`). Varlık kliniğe/servise girdiğinde mülkiyet asla değişmez.
   * *Geçici Zilyetlik (Hizmet Oturumu / `asset_sessions`):* Varlık tesise girdiğinde bir oturum açılır. Hekim veya usta varlığın sahibi olmaz; oturum süresince varlığın geçici koruyucusu ve operatörü olur.
 * **3. YÜKLEM (SÜREÇ / `processes`):** Bir İnsanın (Operatör), yetkili olduğu bir Varlık (Mekan) içinde, başka bir Varlık (Özne) üzerinde icra ettiği zamansal eylemlerdir (`started_at`, `ended_at`, `status`).
-* **4. HAK & İLİŞKİ (EVRENSEL VASIF / `asset_shares`):**
-  Yalnızca İnsanlar varlıklarını paylaşabilir (Varlıklar asla paylaşım yapamaz). Vasıf, 4 temel fiilden ibarettir:
-  * **`can_view` (Görüntüle):** Varlığı, anlık konumunu ve üzerinde yürüyen tüm süreç/oturum kayıtlarını, fotoğrafları izleme izni.
-  * **`can_edit` (Değiştir):** Var olan süreç detaylarını, aşama durumlarını, notları veya varlık bilgilerini güncelleme izni.
-  * **`can_add` (Ekle):** Varlık üzerinde yeni bir süreç başlatma, araya acil müdahale ekleme, sarf/ilaç tüketimi girme veya alt varlık tanımlama izni.
-  * **`can_delete` (Sil):** Varlığı, süreci veya kaydı iptal etme/arşivleme/silme izni.
+* **4. HAK & İLİŞKİ (EVRENSEL CRUD VASIF / `asset_shares`):**
+  Yalnızca İnsanlar varlıklarını paylaşabilir (Varlıklar asla paylaşım yapamaz). Vasıf, 4 temel CRUD fiilinden ibarettir:
+  * **`can_create` (Create):** Varlık üzerinde yeni süreç başlatma, acil müdahale açma, sarf tüketimi girme veya alt varlık tanımlama izni.
+  * **`can_read` (Read):** Varlığı, anlık konumunu ve üzerinde yürüyen tüm süreç/oturum kayıtlarını, fotoğrafları izleme izni.
+  * **`can_update` (Update):** Var olan süreç detaylarını, aşama durumlarını, notları veya varlık bilgilerini güncelleme izni.
+  * **`can_delete` (Delete):** Varlığı, süreci veya kaydı iptal etme/arşivleme/silme izni.
 
 ### 6.2. Üretim PostgreSQL DDL Şeması
 ```sql
@@ -204,20 +204,21 @@ CREATE INDEX idx_assets_parent ON assets(parent_id);
 CREATE INDEX idx_assets_owner ON assets(owner_person_id);
 CREATE INDEX idx_assets_qr ON assets(qr_code);
 
--- 3.1. EVRENSEL VARLIK PAYLAŞIMI (ASSET SHARES - SIFIR KARIŞIKLIK)
--- Kişi assetinin patronudur. Paylaştığı kişinin haklarını 4 bağımsız kutuyla belirler:
+-- 3.1. EVRENSEL VARLIK PAYLAŞIMI (ASSET SHARES - CRUD SÖZLEŞMESİ)
+-- Kişi assetinin patronudur. Paylaştığı kişinin haklarını 4 bağımsız CRUD kutusuyla belirler:
 CREATE TABLE asset_shares (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     shared_with_person_id UUID NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
     
-    -- 4 Bağımsız Seçilebilir İzin:
-    can_view BOOLEAN DEFAULT TRUE,    -- Görüntüle
-    can_edit BOOLEAN DEFAULT FALSE,   -- Değiştir
-    can_add BOOLEAN DEFAULT FALSE,    -- Ekle
-    can_delete BOOLEAN DEFAULT FALSE, -- Sil
+    -- 4 Bağımsız Seçilebilir CRUD İzni:
+    can_create BOOLEAN DEFAULT FALSE, -- Create (Ekle / Oluştur)
+    can_read BOOLEAN DEFAULT TRUE,    -- Read (Oku / Görüntüle)
+    can_update BOOLEAN DEFAULT FALSE, -- Update (Güncelle / Değiştir)
+    can_delete BOOLEAN DEFAULT FALSE, -- Delete (Sil / Kaldır)
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(asset_id, shared_with_person_id)
 );
 CREATE INDEX idx_asset_shares_lookup ON asset_shares(shared_with_person_id, asset_id);

@@ -23,12 +23,21 @@ Yonned projesinde üretilen her satır kod aşağıdaki endüstriyel standartlar
   * Sınıf adları (`Person`, `Asset`, `Vasif`, `LiveProcess`),
   * Fonksiyon ve metot adları (`resolve_permissions()`, `start_process()`),
   * Değişkenler, veri tipleri, enum'lar,
-  * Veritabanı tablo ve sütun adları (`persons`, `asset_shares`, `can_view`, `started_at`),
+  * Veritabanı tablo ve sütun adları (`persons`, `asset_shares`, `can_create`, `can_read`, `can_update`, `can_delete`),
   * REST API endpoint yolları (`/api/v1/sessions/check-in`).
 * **Yorum ve Açıklama Dili: %100 TÜRKÇE**
   * Kod içi satır yorumları (`# Varlık sahibiyse tüm izinler açıktır`),
   * Fonksiyon ve sınıf docstring'leri (`"""..."""`),
   * Git commit mesajları ve dokümantasyon belgeleri.
+
+### 2.1. Mimari Karar Kaydı (ADR-001): Vasıf = Evrensel CRUD Sözleşmesi
+* **Karar:** Yonned dünyasında varlık paylaşımı ve yetki delegasyonu, bilgisayar biliminin ve REST/HTTP standartlarının temeli olan **CRUD (Create, Read, Update, Delete)** modeline bağlanmıştır.
+* **Neden:** 
+  1. `POST` $\rightarrow$ `can_create` (Yeni süreç/sarf/alt mekan oluşturma)
+  2. `GET` $\rightarrow$ `can_read` (Canlı durum, geçmiş, fotoğrafları okuma)
+  3. `PUT/PATCH` $\rightarrow$ `can_update` (Süreç notu, aşama veya varlık güncelleme)
+  4. `DELETE` $\rightarrow$ `can_delete` (Süreç veya varlık silme)
+* **Kazanım:** HTTP metodları ile yetki doğrulaması 1:1 eşleşir; kodda karmaşık yetki matrisleri yerine tek satırlık `if not can_create` filtreleri çalışır.
 
 ---
 

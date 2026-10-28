@@ -52,9 +52,9 @@ async def get_my_asset_wallet(
         shared_list.append({
             "asset": AssetResponse.model_validate(asset),
             "permissions": {
-                "can_view": vasif.can_view,
-                "can_edit": vasif.can_edit,
-                "can_add": vasif.can_add,
+                "can_create": vasif.can_create,
+                "can_read": vasif.can_read,
+                "can_update": vasif.can_update,
                 "can_delete": vasif.can_delete,
             }
         })

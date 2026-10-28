@@ -8,9 +8,9 @@ from app.models.vasif import Vasif
 
 class PermissionService:
     """
-    4-Fiil Yetki Çözümleme Servisi (Universal 4-Verbs Permission Engine).
+    CRUD Yetki Çözümleme Servisi (Universal CRUD Permission Engine).
     Kurallar:
-    1. Varlık Sahibi (owner_person_id == person_id) ise 4 fiilin tümü (Görüntüle, Değiştir, Ekle, Sil) AÇIKTIR.
+    1. Varlık Sahibi (owner_person_id == person_id) ise 4 CRUD fiilinin tümü (C-R-U-D) AÇIKTIR.
     2. Doğrudan 'asset_shares' tablosunda bir vasıf kaydı varsa o izinler geçerlidir.
     3. Doğrudan kayıt yoksa, hiyerarşik olarak ebeveyn varlıklara (parent_id) bakılır (Cascade Yetki).
     """
@@ -23,13 +23,13 @@ class PermissionService:
         person_id: uuid.UUID
     ) -> dict[str, bool]:
         """
-        Belirtilen varlık ve kişi için 4 temel fiili çözümler:
-        {'can_view': bool, 'can_edit': bool, 'can_add': bool, 'can_delete': bool}
+        Belirtilen varlık ve kişi için 4 temel CRUD fiilini çözümler:
+        {'can_create': bool, 'can_read': bool, 'can_update': bool, 'can_delete': bool}
         """
         default_perms = {
-            "can_view": False,
-            "can_edit": False,
-            "can_add": False,
+            "can_create": False,
+            "can_read": False,
+            "can_update": False,
             "can_delete": False,
         }
 
@@ -47,9 +47,9 @@ class PermissionService:
             # Eğer kişi bu varlığın doğrudan sahibiyse (patron veya evcil hayvan/araç sahibi):
             if asset.owner_person_id == person_id:
                 return {
-                    "can_view": True,
-                    "can_edit": True,
-                    "can_add": True,
+                    "can_create": True,
+                    "can_read": True,
+                    "can_update": True,
                     "can_delete": True,
                 }
 
@@ -63,9 +63,9 @@ class PermissionService:
 
             if vasif:
                 return {
-                    "can_view": vasif.can_view,
-                    "can_edit": vasif.can_edit,
-                    "can_add": vasif.can_add,
+                    "can_create": vasif.can_create,
+                    "can_read": vasif.can_read,
+                    "can_update": vasif.can_update,
                     "can_delete": vasif.can_delete,
                 }
 
@@ -80,8 +80,8 @@ class PermissionService:
         db: AsyncSession,
         asset_id: uuid.UUID,
         person_id: uuid.UUID,
-        verb: str  # 'view', 'edit', 'add', 'delete'
+        verb: str  # 'create', 'read', 'update', 'delete'
     ) -> bool:
-        """Tek bir fiil için izin kontrolü yapar."""
+        """Tek bir CRUD fiili için izin kontrolü yapar."""
         perms = await cls.resolve_permissions(db, asset_id, person_id)
         return perms.get(f"can_{verb}", False)

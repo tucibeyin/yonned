@@ -10,7 +10,7 @@ from app.models.person import Person
 from app.models.vasif import Vasif
 from app.schemas.vasif import VasifCreate, VasifResponse, VasifUpdate
 
-router = APIRouter(prefix="/vasifs", tags=["Vasif / Asset Shares"])
+router = APIRouter(prefix="/vasifs", tags=["Vasif / Asset Shares (CRUD)"])
 
 
 @router.post("", response_model=VasifResponse, status_code=status.HTTP_201_CREATED)
@@ -20,9 +20,9 @@ async def grant_vasif(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    VARLIK PAYLAŞIMI VE VASIF TANIMLAMA (4-Verb Share).
+    VARLIK PAYLAŞIMI VE VASIF TANIMLAMA (CRUD Share Contract).
     Kişi kendi asetin patronudur. Paylaştığı kişinin haklarını
-    Görüntüle, Değiştir, Ekle, Sil olarak belirler.
+    Create, Read, Update, Delete olarak belirler.
     Yalnızca varlığın asıl sahibi (owner_person_id) paylaşım yapabilir!
     """
     asset_stmt = select(Asset).where(Asset.id == payload.asset_id)
@@ -47,17 +47,17 @@ async def grant_vasif(
     vasif = vasif_res.scalar_one_or_none()
 
     if vasif:
-        vasif.can_view = payload.can_view
-        vasif.can_edit = payload.can_edit
-        vasif.can_add = payload.can_add
+        vasif.can_create = payload.can_create
+        vasif.can_read = payload.can_read
+        vasif.can_update = payload.can_update
         vasif.can_delete = payload.can_delete
     else:
         vasif = Vasif(
             asset_id=payload.asset_id,
             shared_with_person_id=payload.shared_with_person_id,
-            can_view=payload.can_view,
-            can_edit=payload.can_edit,
-            can_add=payload.can_add,
+            can_create=payload.can_create,
+            can_read=payload.can_read,
+            can_update=payload.can_update,
             can_delete=payload.can_delete
         )
         db.add(vasif)
@@ -73,7 +73,7 @@ async def list_asset_shares(
     current_person: Person = Depends(get_current_person),
     db: AsyncSession = Depends(get_db)
 ):
-    """Bir varlığın kimlerle hangi vasıflarla paylaşıldığını listeler."""
+    """Bir varlığın kimlerle hangi CRUD vasıflarıyla paylaşıldığını listeler."""
     stmt = select(Vasif).where(Vasif.asset_id == asset_id)
     result = await db.execute(stmt)
     shares = result.scalars().all()
