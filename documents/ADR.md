@@ -87,7 +87,7 @@ Proje, backend, mobil, web ve belgeleri tek bir çatı altında toplayan monorep
 
 ## 4. DAĞITIM VE YAŞAM DÖNGÜSÜ (DEPLOYMENT LIFECYCLE)
 
-Yonned platformunda yerel ortamda test koşumu yapılmaz; tüm kod geliştirme döngüsü aşağıdaki 7 sıralı adımla icra edilir:
+Yonned platformunda yerel ortamda test koşumu yapılmaz; tüm kod geliştirme döngüsü aşağıdaki 8 sıralı adımla icra edilir:
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -140,8 +140,35 @@ Yonned platformunda yerel ortamda test koşumu yapılmaz; tüm kod geliştirme d
 │  • sudo systemctl restart yonned_prod_critical_worker  │
 │  • sudo systemctl restart yonned_prod_worker           │
 │  • curl -s http://127.0.0.1:8000/health (Doğrulama)    │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼ Temizlik & Kaynak Tasfiyesi
+┌────────────────────────────────────────────────────────┐
+│  8. TEMİZLİK VE ARTIK KAYNAK TASFİYESİ (CLEAN-UP)      │
+│  • Geçici derleme ve test önbellekleri temizlenir      │
+│  • /tmp dizinindeki geçici işlem dosyaları silinir     │
+│  • pip cache purge ile paket artıkları tasfiye edilir  │
+│  • Bellek/disk sızıntısı ve yetim süreç kalmadığı      │
+│    kesinleştirilir                                     │
 └────────────────────────────────────────────────────────┘
 ```
+
+### 4.1. Yaşam Döngüsü Detayları ve Temizlik (Clean-Up) Protokolü
+Dağıtım yaşam döngüsünün 8. ve son adımı olan **Clean-Up**, sunucuların uzun vadeli kararlılığı, disk doluluğunun önlenmesi ve güvenlik hijyeni açısından zorunlu bir standarttır:
+1. **Python Önbellek Temizliği:** Dağıtım ve test koşturmaları esnasında oluşan bayt kodu dosyaları (`__pycache__`, `*.pyc`, `*.pyo`) ve test önbellekleri (`.pytest_cache`) temizlenir:
+   ```bash
+   find /var/www -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+   find /var/www -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+   ```
+2. **Paket Yöneticisi ve İndirme Önbelleği (pip Cache):** Yeni veya güncellenen bağımlılıkların kurulumu sonrasında paket indirme önbelleği tasfiye edilir:
+   ```bash
+   venv/bin/pip cache purge
+   ```
+3. **Geçici Dosyalar ve İskele Artıkları (`/tmp`):** Testler, geçici derlemeler (ör. go build artıkları, test çıktıları, geçici sertifika/anahtar kopyaları) ve geçici nesne yüklemeleri sırasında `/tmp` altında oluşturulan dosyalar güvenle silinir:
+   ```bash
+   rm -rf /tmp/test_* /tmp/gopath /tmp/go-build*
+   ```
+4. **Yetim ve Asılı Kalan Süreçler (Orphan Processes):** Testlerden veya yeniden başlatmalardan arta kalmış sahipsiz süreçlerin (zombie / hanging process) ve bellek sızıntılarının bulunmadığı teyit edilir.
 
 ---
 
